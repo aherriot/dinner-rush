@@ -1,0 +1,106 @@
+.wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
+  width: max-content;
+  min-width: 160px;
+}
+
+.label {
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  font-weight: var(--text-caption-weight);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.button {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--panel-gutter);
+  height: var(--control);
+  padding: 0 var(--panel-gutter);
+  border-radius: var(--radius);
+  border: var(--border-strong) 1px solid;
+  background: var(--bg-inset);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm-size);
+  color: var(--text-primary);
+}
+
+.button[data-hover] {
+  border-color: var(--accent);
+}
+
+.button[data-open] {
+  border-color: var(--accent);
+}
+
+.button[data-focus] {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.button[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.wrapper[data-error] .button {
+  border-color: var(--status-failed);
+}
+
+.chevron {
+  color: var(--text-tertiary);
+}
+
+.error-message {
+  color: var(--status-failed);
+  font-size: var(--text-caption-size);
+}
+
+.options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  min-width: 100%;
+  margin-top: var(--panel-gap);
+  border-radius: var(--radius);
+  border: var(--border-strong) 1px solid;
+  background: var(--bg-raised);
+  padding: 0;
+}
+
+.options:focus-visible,
+.options:focus {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--row-default);
+  padding: 0 var(--panel-gutter);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm-size);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.option[data-focus] {
+  background: var(--bg-inset);
+}
+
+.option[data-selected] {
+  color: var(--accent);
+}

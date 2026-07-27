@@ -78,8 +78,63 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: tokens:build is up to date
+        working-directory: apps/web
+        run: pnpm run tokens:check
+
+      - name: stylelint + eslint
+        working-directory: apps/web
+        run: pnpm run lint
+
       - name: Typecheck + build
         run: pnpm --filter web run build
+
+      - name: Storybook build
+        working-directory: apps/web
+        run: pnpm run build-storybook
+
+      - name: Unit tests
+        working-directory: apps/web
+        run: pnpm run test:unit
+
+      - name: Storybook interaction + a11y tests
+        working-directory: apps/web
+        run: pnpm run test:storybook
+
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Visual regression + axe (every Storybook story, light + dark)
+        working-directory: apps/web
+        run: pnpm run test:visual
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 14
 
   compose:
     runs-on: ubuntu-latest

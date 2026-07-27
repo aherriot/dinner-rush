@@ -1,0 +1,12 @@
+.wordmark {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.second {
+  color: var(--accent);
+}

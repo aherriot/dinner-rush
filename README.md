@@ -5,7 +5,7 @@ A simulated pizza operation running under real load — see
 the standing rules this repo is built against.
 
 Built in phases; see [docs/PHASES.md](docs/PHASES.md). Currently at
-**Phase 0 — Rails**.
+**Phase 1 — Design system**.
 
 ## Quickstart
 
@@ -18,6 +18,15 @@ make down
 
 `gateway` serves on `http://localhost:8000` — `/healthz` for liveness,
 `/readyz` for real dependency checks (Postgres, Redis).
+
+```bash
+cd apps/web
+pnpm storybook   # design system — tokens, primitives, DINNER RUSH wordmark
+```
+
+See [apps/web/README.md](apps/web/README.md) for the frontend command surface
+(lint, tests, visual regression) and [docs/DESIGN.md](docs/DESIGN.md) for the
+token system itself.
 
 ## Layout
 

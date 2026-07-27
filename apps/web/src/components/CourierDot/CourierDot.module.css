@@ -1,0 +1,23 @@
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-pill);
+  border: var(--courier-idle) 2px solid;
+  background: var(--courier-idle);
+}
+
+.dot[data-status="active"] {
+  border-color: var(--courier-active);
+  background: var(--courier-active);
+}
+
+.dot[data-status="offline"] {
+  border: var(--courier-offline) 2px dashed;
+  background: var(--bg-inset);
+  opacity: 0.4;
+}
+
+.dot[data-selected] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

@@ -1,0 +1,49 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  color: var(--text-secondary);
+}
+
+.value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.track {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--oven-free);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--oven-occupied);
+  transition: width var(--dur-normal) var(--ease-out);
+}
+
+.track[data-status="at-capacity"] .fill {
+  background: var(--oven-reserved);
+}
+
+.track[data-status="over-capacity"] .fill {
+  background: var(--status-failed);
+}
+
+.track[data-status="down"] {
+  background: var(--bg-inset) repeating-linear-gradient(45deg, var(--oven-down), var(--oven-down) 4px, transparent 4px, transparent 8px);
+}
+
+.track[data-status="down"] .fill {
+  display: none;
+}
