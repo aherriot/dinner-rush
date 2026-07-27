@@ -1,0 +1,10 @@
+.canvas {
+  /* DESIGN.md §3: every contrast ratio is measured against --bg-panel, not
+     --bg-base — match that surface here so Storybook renders components on
+     the background their contrast was actually audited against. */
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  min-height: 100vh;
+  padding: var(--panel-gutter);
+}

@@ -1,0 +1,60 @@
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
+  padding: var(--panel-gutter);
+}
+
+.label {
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  font-weight: var(--text-caption-weight);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--panel-gap);
+}
+
+.value {
+  font-family: var(--font-mono);
+  font-size: var(--metric-size);
+  line-height: var(--metric-line);
+  font-weight: var(--metric-weight);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.value[data-stale] {
+  color: var(--text-tertiary);
+}
+
+.value[data-no-data] {
+  color: var(--text-tertiary);
+}
+
+.delta {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-size);
+  font-variant-numeric: tabular-nums;
+}
+
+.delta[data-direction="up"] {
+  color: var(--status-ready);
+}
+
+.delta[data-direction="down"] {
+  color: var(--status-failed);
+}
+
+.stale-badge {
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  color: var(--text-tertiary);
+}

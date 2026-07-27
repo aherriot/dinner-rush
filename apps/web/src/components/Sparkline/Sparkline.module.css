@@ -1,0 +1,13 @@
+.sparkline {
+  display: block;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  color: var(--text-tertiary);
+}

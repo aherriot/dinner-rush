@@ -12,6 +12,12 @@ node_modules/
 dist/
 dist-ssr/
 *.local
+.pnpm-store/
+
+# Claude Code local session state — project skills (.claude/skills/) are
+# checked in, everything else here is machine-local
+.claude/*
+!.claude/skills/
 
 # Env
 .env

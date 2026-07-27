@@ -1,0 +1,17 @@
+{
+  "extends": ["stylelint-config-standard"],
+  "ignoreFiles": ["src/design/tokens.css"],
+  "overrides": [
+    {
+      "files": ["**/*.module.css"],
+      "rules": {
+        "color-no-hex": true,
+        "declaration-property-value-disallowed-list": {
+          "/^(color|background|background-color|border|fill|stroke)/": ["/^(?!var\\(--)/"],
+          "/^(margin|padding|gap|top|right|bottom|left)/": ["/^-?\\d+(px|rem|em)$/"]
+        },
+        "custom-property-pattern": "^(?!.*-(50|100|200|300|400|500|600|700|800|900)$).*$"
+      }
+    }
+  ]
+}

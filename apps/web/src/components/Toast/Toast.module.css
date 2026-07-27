@@ -1,0 +1,83 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
+  width: 320px;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--panel-gap);
+  padding: var(--panel-gutter);
+  border-radius: var(--radius);
+  border: var(--border-strong) 1px solid;
+  background: var(--bg-raised);
+  transition:
+    opacity var(--dur-normal) var(--ease-out),
+    transform var(--dur-normal) var(--ease-out);
+}
+
+.toast[data-closed] {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.glyph {
+  flex-shrink: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm-size);
+}
+
+.toast[data-variant="info"] {
+  border-left: var(--status-accepted) 3px solid;
+}
+
+.toast[data-variant="info"] .glyph {
+  color: var(--status-accepted);
+}
+
+.toast[data-variant="success"] {
+  border-left: var(--status-ready) 3px solid;
+}
+
+.toast[data-variant="success"] .glyph {
+  color: var(--status-ready);
+}
+
+.toast[data-variant="warning"] {
+  border-left: var(--oven-reserved) 3px solid;
+}
+
+.toast[data-variant="warning"] .glyph {
+  color: var(--oven-reserved);
+}
+
+.toast[data-variant="error"] {
+  border-left: var(--status-failed) 3px solid;
+}
+
+.toast[data-variant="error"] .glyph {
+  color: var(--status-failed);
+}
+
+.body {
+  flex: 1;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm-size);
+  line-height: var(--text-sm-line);
+  color: var(--text-primary);
+}
+
+.dismiss {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+}
+
+.dismiss[data-hover] {
+  color: var(--text-primary);
+}

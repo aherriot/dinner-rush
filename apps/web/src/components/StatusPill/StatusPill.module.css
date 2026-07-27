@@ -1,0 +1,142 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--panel-gap);
+  height: var(--control-sm);
+  padding: 0 var(--panel-gutter);
+  border-radius: var(--radius-pill);
+  border: var(--border-subtle) 1px solid;
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  font-weight: var(--text-caption-weight);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.glyph {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.late {
+  border-left: var(--status-late) 2px solid;
+}
+
+.late-suffix {
+  color: var(--status-late);
+}
+
+.pill[data-status="placed"] {
+  color: var(--status-placed);
+  border-color: var(--status-placed);
+  animation: placed-enter var(--dur-fast) var(--ease-out);
+}
+
+.pill[data-status="accepted"] {
+  color: var(--status-accepted);
+  border-color: var(--status-accepted);
+}
+
+.pill[data-status="queued"] {
+  color: var(--status-queued);
+  border-color: var(--status-queued);
+}
+
+.pill[data-status="prepping"] {
+  color: var(--status-prepping);
+  border-color: var(--status-prepping);
+}
+
+.pill[data-status="baking"] {
+  color: var(--status-baking);
+  border-color: var(--status-baking);
+}
+
+.pill[data-status="boxed"] {
+  color: var(--status-boxed);
+  border-color: var(--status-boxed);
+}
+
+.pill[data-status="ready"] {
+  color: var(--status-ready);
+  border-color: var(--status-ready);
+}
+
+.pill[data-status="ready"] .glyph {
+  animation: ready-pulse 1.2s var(--ease-inout) 3;
+}
+
+.pill[data-status="assigned"] {
+  color: var(--status-assigned);
+  border-color: var(--status-assigned);
+}
+
+.pill[data-status="picked_up"] {
+  color: var(--status-picked-up);
+  border-color: var(--status-picked-up);
+}
+
+.pill[data-status="delivering"] {
+  color: var(--status-delivering);
+  border-color: var(--status-delivering);
+}
+
+.pill[data-status="delivered"] {
+  color: var(--status-delivered);
+  border-color: var(--status-delivered);
+}
+
+.pill[data-status="rejected"] {
+  color: var(--status-rejected);
+  border-color: var(--status-rejected);
+  animation: rejected-enter var(--dur-instant) linear;
+}
+
+.pill[data-status="failed"] {
+  color: var(--status-failed);
+  border-color: var(--status-failed);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill[data-status="ready"] .glyph,
+  .pill[data-status="rejected"],
+  .pill[data-status="placed"] {
+    animation: none;
+  }
+}
+
+@keyframes ready-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes rejected-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes placed-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
