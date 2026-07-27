@@ -1,19 +1,16 @@
 """Runtime SPEED override — `POST /admin/speed` (SPEC.md §3.2).
 
-`config.yaml`'s `speed` is the boot-time default; a manager can change it live
-via the admin endpoint. Stored in Redis (not Postgres) because it's a runtime
-knob, not domain state, and every service that later reads it (kitchen,
-dispatch) shares the same Redis. Durations are still divided by this value
-only at the point of use — never stored pre-scaled (SPEC.md §5).
+Thin gateway-side wrapper around `dinner_rush_core.speed` — the key and
+fallback logic are shared so kitchen reads the exact same runtime value
+gateway's admin endpoint writes.
 """
 
 import redis
 from django.conf import settings
 
-from dinner_rush_core.config import load_config
+from dinner_rush_core import speed as core_speed
 
-_SPEED_KEY = "dinner_rush:speed"
-VALID_SPEEDS = (1, 10, 60)
+VALID_SPEEDS = core_speed.VALID_SPEEDS
 
 
 def _client() -> redis.Redis:
@@ -21,11 +18,8 @@ def _client() -> redis.Redis:
 
 
 def get_speed() -> int:
-    value = _client().get(_SPEED_KEY)
-    if value is not None:
-        return int(value)
-    return load_config().speed
+    return core_speed.get_speed(_client())
 
 
 def set_speed(speed: int) -> None:
-    _client().set(_SPEED_KEY, speed)
+    core_speed.set_speed(_client(), speed)

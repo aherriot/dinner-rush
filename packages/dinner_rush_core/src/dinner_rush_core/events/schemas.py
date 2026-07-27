@@ -69,8 +69,11 @@ class OrderBakedPayload(_Payload):
 
 class OrderReadyPayload(_Payload):
     code: str
-    grid_x: int
-    grid_y: int
+    # Kitchen (Phase 4's producer) has no address data by design — no PII
+    # crosses into its database. `None` until Phase 7's dispatch, which
+    # does hold the address, becomes the actual owner of this field.
+    grid_x: int | None = None
+    grid_y: int | None = None
     ready_at: datetime
 
 
@@ -83,3 +86,25 @@ class OrderDeliveredPayload(_Payload):
 class OrderFailedPayload(_Payload):
     code: str
     reason: str
+
+
+class ItemStartedPayload(_Payload):
+    code: str
+    item_id: str
+    station: str
+
+
+class OvenSlotFreedPayload(_Payload):
+    oven_id: str
+    slot_index: int
+
+
+class OvenStatusChangedPayload(_Payload):
+    """Shared shape for `oven.down` / `oven.restored` (SPEC.md §4)."""
+
+    oven_id: str
+    slot_count: int
+
+
+class StationDownPayload(_Payload):
+    station_id: str

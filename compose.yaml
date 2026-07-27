@@ -10,6 +10,7 @@ x-gateway-env: &gateway-env
   POSTGRES_USER: gateway
   POSTGRES_PASSWORD: gateway
   REDIS_URL: redis://redis:6379/0
+  KITCHEN_BASE_URL: http://kitchen:8001
   DJANGO_DEBUG: "true"
   DJANGO_ALLOWED_HOSTS: "*"
   CONFIG_PATH: /app/config.yaml
@@ -23,13 +24,36 @@ x-gateway-depends-on: &gateway-depends-on
   redis:
     condition: service_healthy
 
+x-kitchen-image: &kitchen-image
+  build:
+    context: .
+    dockerfile: services/kitchen/Dockerfile
+
+x-kitchen-env: &kitchen-env
+  KITCHEN_POSTGRES_HOST: kitchen-db
+  KITCHEN_POSTGRES_PORT: "5432"
+  KITCHEN_POSTGRES_DB: kitchen
+  KITCHEN_POSTGRES_USER: kitchen
+  KITCHEN_POSTGRES_PASSWORD: kitchen
+  REDIS_URL: redis://redis:6379/0
+  CONFIG_PATH: /app/config.yaml
+
+x-kitchen-volumes: &kitchen-volumes
+  - ./config.yaml:/app/config.yaml:ro
+
+x-kitchen-depends-on: &kitchen-depends-on
+  kitchen-db:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
 # The event spine's own processes (DECISIONS.md §0003/§0004) are separate
-# containers, not threads inside `gateway`, so any one of them can be killed
-# on its own for the Phase 10 recovery demo. They share the gateway image —
-# same code, different `command:` — and use a liveness-only healthcheck
-# (no HTTP endpoint to poll): good enough to keep `make up`'s "every
-# container healthy" promise without pretending to measure queue health,
-# which is what `stream_pending` (Phase 9) is actually for.
+# containers, not threads inside `gateway`/`kitchen`, so any one of them can
+# be killed on its own for the Phase 10 recovery demo. They share their
+# service's image — same code, different `command:` — and use a
+# liveness-only healthcheck (no HTTP endpoint to poll): good enough to keep
+# `make up`'s "every container healthy" promise without pretending to
+# measure queue health, which is what `stream_pending` (Phase 9) is for.
 x-worker-healthcheck: &worker-healthcheck
   test: ["CMD", "python", "-c", "exit(0)"]
   interval: 5s
@@ -50,6 +74,22 @@ services:
       - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U gateway -d gateway"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  kitchen-db:
+    image: postgres:18.4-alpine
+    environment:
+      POSTGRES_DB: kitchen
+      POSTGRES_USER: kitchen
+      POSTGRES_PASSWORD: kitchen
+    volumes:
+      - kitchen-db-data:/var/lib/postgresql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kitchen -d kitchen"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -116,5 +156,56 @@ services:
     healthcheck: *worker-healthcheck
     restart: unless-stopped
 
+  consumer-order-sync:
+    <<: *gateway-image
+    command: ["python", "manage.py", "stream_consumer", "--group", "cg:order-sync"]
+    environment: *gateway-env
+    volumes: *gateway-volumes
+    depends_on: *gateway-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
+  kitchen:
+    <<: *kitchen-image
+    environment: *kitchen-env
+    volumes: *kitchen-volumes
+    ports:
+      - "8001:8001"
+    depends_on: *kitchen-depends-on
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/readyz', timeout=2)"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  kitchen-celery-worker:
+    <<: *kitchen-image
+    command: ["celery", "-A", "kitchen.celery_app", "worker", "--loglevel=info"]
+    environment: *kitchen-env
+    volumes: *kitchen-volumes
+    depends_on: *kitchen-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
+  kitchen-outbox-relay:
+    <<: *kitchen-image
+    command: ["python", "-m", "kitchen.cli", "relay"]
+    environment: *kitchen-env
+    volumes: *kitchen-volumes
+    depends_on: *kitchen-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
+  kitchen-consumer:
+    <<: *kitchen-image
+    command: ["python", "-m", "kitchen.cli", "stream_consumer", "--group", "cg:kitchen"]
+    environment: *kitchen-env
+    volumes: *kitchen-volumes
+    depends_on: *kitchen-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
 volumes:
   gateway-db-data:
+  kitchen-db-data:

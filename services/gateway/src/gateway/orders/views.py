@@ -15,7 +15,7 @@ from gateway.common.authentication import get_actor
 from gateway.common.permissions import IsCustomer, IsOwnOrderOrManager
 from gateway.customers.models import Address, Customer
 from gateway.eventing.writer import build_envelope, write_outbox_event
-from gateway.orders import pricing, rejection
+from gateway.orders import kitchen_client, pricing, rejection
 from gateway.orders.fsm import apply_transition
 from gateway.orders.models import Order, OrderCodeSequence, OrderItem, OrderStatusEvent
 from gateway.orders.serializers import (
@@ -23,7 +23,6 @@ from gateway.orders.serializers import (
     OrderSerializer,
     OrderStatusEventSerializer,
 )
-from gateway.orders.tasks import start_progression
 
 
 def _next_order_code(order_code_start: int) -> str:
@@ -73,6 +72,17 @@ class OrderCreateView(APIView):
 
         config = load_config()
 
+        item_lines: list[dict[str, object]] = [
+            {"sku": item["sku"], "qty": item["qty"]} for item in payload["items"]
+        ]
+        reason = rejection.rejection_reason(
+            [menu_items_by_sku[item["sku"]] for item in payload["items"]], address, config
+        )
+        quote = None
+        if reason is None:
+            quote = kitchen_client.get_capacity_quote(item_lines)
+            reason = rejection.capacity_rejection_reason(quote)
+
         with transaction.atomic():
             order = Order.objects.create(
                 code=_next_order_code(config.gateway.order_code_start),
@@ -102,9 +112,6 @@ class OrderCreateView(APIView):
             ]
             OrderItem.objects.bulk_create(order_items)
 
-            item_lines: list[dict[str, object]] = [
-                {"sku": item["sku"], "qty": item["qty"]} for item in payload["items"]
-            ]
             placed_envelope = build_envelope(
                 event_type="order.placed",
                 aggregate_type="order",
@@ -130,9 +137,6 @@ class OrderCreateView(APIView):
             order.delivery_fee_cents = fee
             order.total_cents = pricing.total_cents(subtotal, fee)
 
-            reason = rejection.rejection_reason(
-                [menu_items_by_sku[item["sku"]] for item in payload["items"]], address, config
-            )
             if reason is not None:
                 order.status = apply_transition("placed", "reject")
                 order.rejection_reason = reason
@@ -148,14 +152,24 @@ class OrderCreateView(APIView):
                         sequence=2,
                         correlation_id=order.id,
                         causation_id=placed_envelope.event_id,
-                        payload={"code": order.code, "reason": reason, "queue_depth": 0},
+                        payload={
+                            "code": order.code,
+                            "reason": reason,
+                            "queue_depth": quote.queue_depth if quote else 0,
+                        },
                     )
                 )
                 response_status = 202
             else:
+                assert quote is not None  # reached only after a capacity quote said yes
                 order.status = apply_transition("placed", "accept")
                 order.accepted_at = timezone.now()
-                order.promised_at = pricing.promised_at(order.accepted_at, get_speed())
+                order.promised_at = pricing.promised_at(
+                    order.accepted_at,
+                    get_speed(),
+                    projected_wait_s=quote.projected_wait_s,
+                    buffer_seconds=config.kitchen.capacity.promise_buffer_seconds,
+                )
                 order.save()
                 OrderStatusEvent.objects.create(
                     order=order, from_status="placed", to_status="accepted", event="accept"
@@ -175,9 +189,6 @@ class OrderCreateView(APIView):
                 )
                 write_outbox_event(accepted_envelope)
                 response_status = 201
-
-        if response_status == 201:
-            start_progression(order, sequence=3, causation_id=str(accepted_envelope.event_id))
 
         order = Order.objects.prefetch_related("items").get(id=order.id)
         return Response(OrderSerializer(order).data, status=response_status)

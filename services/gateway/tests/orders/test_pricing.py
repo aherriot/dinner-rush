@@ -23,12 +23,15 @@ def test_total_is_subtotal_plus_fee() -> None:
     assert pricing.total_cents(2000, 299) == 2299
 
 
-def test_promised_at_buffer_is_divided_by_speed_at_point_of_use() -> None:
+def test_promised_at_sums_wait_and_buffer_divided_by_speed_at_point_of_use() -> None:
     accepted_at = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
 
-    assert pricing.promised_at(accepted_at, speed=1) == accepted_at + datetime.timedelta(
-        seconds=900
+    result = pricing.promised_at(
+        accepted_at, speed=1, projected_wait_s=720.0, buffer_seconds=180
     )
-    assert pricing.promised_at(accepted_at, speed=10) == accepted_at + datetime.timedelta(
-        seconds=90
+    assert result == accepted_at + datetime.timedelta(seconds=900)
+
+    result_at_10x = pricing.promised_at(
+        accepted_at, speed=10, projected_wait_s=720.0, buffer_seconds=180
     )
+    assert result_at_10x == accepted_at + datetime.timedelta(seconds=90)

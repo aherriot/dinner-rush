@@ -44,6 +44,19 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
+      kitchen-postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_DB: kitchen
+          POSTGRES_USER: kitchen
+          POSTGRES_PASSWORD: kitchen
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U kitchen -d kitchen"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
       redis:
         image: redis:8.8-alpine
         ports:
@@ -75,6 +88,8 @@ jobs:
         env:
           POSTGRES_HOST: localhost
           REDIS_URL: redis://localhost:6379/0
+          KITCHEN_POSTGRES_HOST: localhost
+          KITCHEN_POSTGRES_PORT: "5433"
         run: uv run pytest
 
   frontend:

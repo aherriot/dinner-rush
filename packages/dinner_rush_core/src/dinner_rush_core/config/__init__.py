@@ -63,12 +63,48 @@ class StreamsConfig(BaseModel):
     outbox_batch: int
 
 
+class OvenConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str
+    slot_count: int
+
+
+class StationConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str
+    kind: str
+    capacity: int
+
+
+class CapacityConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    max_queue_depth: int
+    max_projected_wait_seconds: int
+    promise_buffer_seconds: int
+    reject_when_all_ovens_down: bool
+
+
+class KitchenConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    ovens: list[OvenConfig]
+    stations: list[StationConfig]
+    tick_interval_seconds: int
+    slot_reaper_interval_seconds: int
+    slot_reaper_grace_seconds: int
+    capacity: CapacityConfig
+
+
 class RootConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     speed: int
     gateway: GatewayConfig
     dispatch: DispatchConfig
+    kitchen: KitchenConfig
     menu: list[MenuItemConfig]
     streams: StreamsConfig
 

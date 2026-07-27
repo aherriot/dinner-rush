@@ -13,7 +13,11 @@ export function OvenSlot({ status, progress = 0, label }: OvenSlotProps) {
   return (
     <div className={styles.slot} data-status={status} role="img" aria-label={`Oven slot: ${status}${status === "occupied" ? `, ${clamped}% baked` : ""}`}>
       {status === "occupied" && <div className={styles.fill} style={{ height: `${clamped}%` }} />}
-      {label && <span className={styles.label}>{label}</span>}
+      {label && (
+        <div className={styles.label}>
+          <span>{label}</span>
+        </div>
+      )}
     </div>
   );
 }

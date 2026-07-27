@@ -2,19 +2,18 @@ import pytest
 
 from gateway.customers.models import Address, Customer
 from gateway.eventing.models import Outbox
-from gateway.orders.models import Order, OrderItem
+from gateway.orders.models import Order
 from gateway.orders.tasks import STEPS, advance_order
 
 
 @pytest.mark.django_db
-def test_advance_order_walks_an_accepted_order_all_the_way_to_delivered(
+def test_advance_order_walks_a_ready_order_all_the_way_to_delivered(
     monkeypatch: pytest.MonkeyPatch,
     customer_with_address: tuple[Customer, Address],
-    menu_item: object,
 ) -> None:
-    # Each step's own chaining to the next is exercised by the view-level
-    # integration test; here each step is driven explicitly so the test
-    # doesn't depend on a live Celery broker/worker actually running.
+    # Each step's own chaining to the next is exercised by the
+    # order-sync-triggered integration path; here each step is driven
+    # explicitly so the test doesn't depend on a live Celery broker/worker.
     monkeypatch.setattr(advance_order, "apply_async", lambda *a, **kw: None)
 
     customer, address = customer_with_address
@@ -22,19 +21,10 @@ def test_advance_order_walks_an_accepted_order_all_the_way_to_delivered(
         code="9000",
         customer=customer,
         address=address,
-        status="accepted",
+        status="ready",
         subtotal_cents=1200,
         delivery_fee_cents=299,
         total_cents=1499,
-    )
-    OrderItem.objects.create(
-        order=order,
-        menu_item=menu_item,
-        qty=1,
-        unit_price_cents=1200,
-        name_snapshot="Margherita",
-        prep_seconds_snapshot=90,
-        bake_seconds_snapshot=420,
     )
 
     causation_id = None
@@ -56,13 +46,7 @@ def test_advance_order_walks_an_accepted_order_all_the_way_to_delivered(
     published_event_types = list(
         Outbox.objects.order_by("id").values_list("envelope__event_type", flat=True)
     )
-    assert published_event_types == [
-        "order.queued",
-        "order.baking",
-        "order.baked",
-        "order.ready",
-        "order.delivered",
-    ]
+    assert published_event_types == ["order.delivered"]
 
 
 @pytest.mark.django_db

@@ -1,12 +1,15 @@
-"""Rejection reasons reachable without a kitchen service (SPEC.md §1.1).
+"""Rejection reasons (SPEC.md §1.1).
 
-`at_capacity` needs `POST /capacity/quote` (Phase 4) and is unreachable here —
-every order is accepted for capacity purposes in Phase 2.
+`item_unavailable`/`outside_range` are free — no network call, checked
+first. `at_capacity` needs kitchen's `POST /capacity/quote` (Phase 4), so
+it's a separate function: no reason to make that call if a free check
+already rejected the order.
 """
 
 from dinner_rush_core.config import RootConfig
 from gateway.catalog.models import MenuItem
 from gateway.customers.models import Address
+from gateway.orders.kitchen_client import CapacityQuote
 
 
 def chebyshev_distance(x1: int, y1: int, x2: int, y2: int) -> int:
@@ -26,3 +29,7 @@ def rejection_reason(
         return "outside_range"
 
     return None
+
+
+def capacity_rejection_reason(quote: CapacityQuote) -> str | None:
+    return None if quote.can_accept else "at_capacity"
