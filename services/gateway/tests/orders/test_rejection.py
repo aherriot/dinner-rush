@@ -5,6 +5,7 @@ from dinner_rush_core.config import (
     KitchenConfig,
     RestaurantConfig,
     RootConfig,
+    ServiceClientConfig,
     StreamsConfig,
 )
 from gateway.catalog.models import MenuItem
@@ -43,6 +44,14 @@ def _config(max_delivery_distance_cells: int = 45) -> RootConfig:
             read_count=64,
             outbox_poll_ms=100,
             outbox_batch=100,
+        ),
+        service_client=ServiceClientConfig(
+            timeout_seconds=5,
+            retry_max_attempts=3,
+            retry_base_delay_seconds=0.1,
+            retry_max_delay_seconds=1.0,
+            circuit_breaker_failure_threshold=5,
+            circuit_breaker_reset_seconds=30,
         ),
     )
 

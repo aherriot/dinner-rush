@@ -4,9 +4,10 @@ from sqlalchemy.orm import Session
 from dinner_rush_core.config import load_config
 from kitchen import capacity
 from kitchen.api_models import CapacityQuoteRequest, CapacityQuoteResponse
+from kitchen.auth import require_service_scope
 from kitchen.db import get_session
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_service_scope("kitchen:call"))])
 
 
 @router.post("/capacity/quote", response_model=CapacityQuoteResponse)

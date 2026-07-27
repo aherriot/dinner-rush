@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from kitchen.api_models import TicketAdvanceRequest, TicketOut
+from kitchen.auth import require_service_scope
 from kitchen.db import get_session
 from kitchen.fsm import IllegalTransition, apply_transition
 from kitchen.models import Ticket
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_service_scope("kitchen:advance"))])
 
 
 @router.post("/tickets/{ticket_id}/advance", response_model=TicketOut)
@@ -17,9 +18,9 @@ def advance_ticket_manually(
 ) -> Ticket:
     """Manual override — manager/kitchen only (SPEC.md §3.3).
 
-    Service-to-service and staff auth land in Phase 5; until then this
-    endpoint trusts its caller, same as every other kitchen<->gateway call
-    this phase.
+    Board calling this directly with a staff token is a Phase 8 concern (see
+    `kitchen.auth`'s module docstring); until then it's reached only through
+    gateway's own service token, scoped to `kitchen:advance`.
     """
     ticket = session.get(Ticket, ticket_id)
     if ticket is None:

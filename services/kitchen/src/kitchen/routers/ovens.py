@@ -3,10 +3,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from kitchen.api_models import OvenOut
+from kitchen.auth import require_service_scope
 from kitchen.db import get_session
 from kitchen.models import Oven
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_service_scope("kitchen:read"))])
 
 
 @router.get("/ovens", response_model=list[OvenOut])

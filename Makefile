@@ -42,6 +42,8 @@ lint: ## ruff, mypy, stylelint, eslint, token + generated-client drift check
 	uv run mypy
 	cd services/gateway && uv run python manage.py spectacular --format openapi-json --file openapi.json --fail-on-warn
 	git diff --exit-code -- services/gateway/openapi.json
+	uv run python services/kitchen/scripts/export_openapi.py
+	git diff --exit-code -- services/kitchen/openapi.json
 	cd apps/web && pnpm run tokens:check
 	cd apps/web && pnpm run api:check
 	cd apps/web && pnpm run lint

@@ -21,9 +21,22 @@ from gateway.common.permissions import IsManager
 from gateway.customers.models import Customer
 from gateway.customers.serializers import CustomerSerializer
 
+#: SPEC.md §6.1's resource matrix, encoded as scope strings. Gateway's own
+#: DRF permission classes (`IsManager`, ...) still authorize on `role` — this
+#: is the claim kitchen/dispatch check instead, since they have no view of
+#: gateway's role-to-permission mapping and shouldn't need one.
+ROLE_SCOPES: dict[str, list[str]] = {
+    "customer": ["orders:own"],
+    "kitchen": ["kitchen:read", "kitchen:advance"],
+    "manager": ["orders:any", "kitchen:read", "kitchen:advance", "admin:all", "analytics:read"],
+}
 
-def _issue_token(**claims: str) -> dict[str, str]:
+
+def _issue_token(*, role: str, **claims: str) -> dict[str, str]:
     refresh = RefreshToken()
+    refresh["role"] = role
+    refresh["scope"] = ROLE_SCOPES[role]
+    refresh["sub"] = claims.get("customer_id") or claims.get("staff_id") or role
     for key, value in claims.items():
         refresh[key] = value
     return {"access": str(refresh.access_token), "refresh": str(refresh)}

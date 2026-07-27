@@ -25,6 +25,9 @@ dist-ssr/
 !.env.example
 config.yaml
 
+# Dev-generated RS256 signing keypair (gateway/common/keys.py) — never committed
+services/gateway/keys/
+
 # OS
 .DS_Store
 

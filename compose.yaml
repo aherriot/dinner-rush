@@ -14,9 +14,12 @@ x-gateway-env: &gateway-env
   DJANGO_DEBUG: "true"
   DJANGO_ALLOWED_HOSTS: "*"
   CONFIG_PATH: /app/config.yaml
+  JWT_PRIVATE_KEY_PATH: /app/keys/jwt_private.pem
+  JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
 
 x-gateway-volumes: &gateway-volumes
   - ./config.yaml:/app/config.yaml:ro
+  - gateway-keys:/app/keys
 
 x-gateway-depends-on: &gateway-depends-on
   gateway-db:
@@ -37,6 +40,7 @@ x-kitchen-env: &kitchen-env
   KITCHEN_POSTGRES_PASSWORD: kitchen
   REDIS_URL: redis://redis:6379/0
   CONFIG_PATH: /app/config.yaml
+  GATEWAY_URL: http://gateway:8000
 
 x-kitchen-volumes: &kitchen-volumes
   - ./config.yaml:/app/config.yaml:ro
@@ -209,3 +213,4 @@ services:
 volumes:
   gateway-db-data:
   kitchen-db-data:
+  gateway-keys:

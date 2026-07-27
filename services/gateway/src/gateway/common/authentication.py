@@ -23,6 +23,7 @@ class Actor:
     role: str
     customer_id: str | None = None
     staff_id: str | None = None
+    scope: tuple[str, ...] = ()
 
     @property
     def is_authenticated(self) -> bool:
@@ -61,5 +62,6 @@ class JWTRoleAuthentication(BaseAuthentication):
             role=role,
             customer_id=access.get("customer_id"),
             staff_id=access.get("staff_id"),
+            scope=tuple(access.get("scope", [])),
         )
         return (actor, access)
