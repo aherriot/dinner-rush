@@ -17,7 +17,7 @@ def accepting_kitchen(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         orders_views.kitchen_client,
         "get_capacity_quote",
-        lambda items: kitchen_client.CapacityQuote(
+        lambda items, **kwargs: kitchen_client.CapacityQuote(
             can_accept=True, queue_depth=0, projected_wait_s=300.0
         ),
     )
@@ -127,7 +127,7 @@ def test_order_rejected_at_capacity_when_kitchen_says_no(
     monkeypatch.setattr(
         orders_views.kitchen_client,
         "get_capacity_quote",
-        lambda items: kitchen_client.CapacityQuote(
+        lambda items, **kwargs: kitchen_client.CapacityQuote(
             can_accept=False, queue_depth=41, projected_wait_s=3000.0
         ),
     )
@@ -159,7 +159,9 @@ def test_unavailable_item_short_circuits_before_calling_kitchen(
     menu_item.save()
     _, address = customer_with_address
 
-    def _fail_if_called(items: list[dict[str, object]]) -> kitchen_client.CapacityQuote:
+    def _fail_if_called(
+        items: list[dict[str, object]], **kwargs: object
+    ) -> kitchen_client.CapacityQuote:
         raise AssertionError("kitchen should not have been called")
 
     monkeypatch.setattr(orders_views.kitchen_client, "get_capacity_quote", _fail_if_called)

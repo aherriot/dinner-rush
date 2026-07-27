@@ -24,3 +24,8 @@ DATABASE_URL = os.environ.get(
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 CELERY_BROKER_URL = REDIS_URL
+
+# Gateway is the only JWT signer (SPEC.md §6.3) — kitchen fetches and caches
+# its public key from here rather than sharing a secret.
+GATEWAY_URL = os.environ.get("GATEWAY_URL", "http://gateway:8000")
+JWKS_URL = f"{GATEWAY_URL}/.well-known/jwks.json"

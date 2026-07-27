@@ -6,14 +6,25 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from dinner_rush_core.auth import Claims
+from kitchen.auth import get_claims
 from kitchen.db import get_session
 from kitchen.main import app
 from kitchen.models import Oven, OvenSlot, Ticket
+
+_FULL_ACCESS_CLAIMS = Claims(
+    sub="gateway",
+    role="service",
+    scope=["kitchen:call", "kitchen:read", "kitchen:advance"],
+    exp=0,
+    correlation_id=None,
+)
 
 
 @pytest.fixture
 def client(session: Session) -> Iterator[TestClient]:
     app.dependency_overrides[get_session] = lambda: session
+    app.dependency_overrides[get_claims] = lambda: _FULL_ACCESS_CLAIMS
     yield TestClient(app)
     app.dependency_overrides.clear()
 

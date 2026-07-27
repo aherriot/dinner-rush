@@ -84,6 +84,17 @@ jobs:
       - name: mypy
         run: uv run mypy
 
+      - name: gateway's checked-in OpenAPI schema is up to date
+        working-directory: services/gateway
+        run: |
+          uv run python manage.py spectacular --format openapi-json --file openapi.json --fail-on-warn
+          git diff --exit-code -- openapi.json
+
+      - name: kitchen's checked-in OpenAPI schema is up to date
+        run: |
+          uv run python services/kitchen/scripts/export_openapi.py
+          git diff --exit-code -- services/kitchen/openapi.json
+
       - name: pytest
         env:
           POSTGRES_HOST: localhost
@@ -120,6 +131,11 @@ jobs:
         if: needs.changes.outputs.frontend == 'true'
         working-directory: apps/web
         run: pnpm run tokens:check
+
+      - name: generated gateway API client is up to date
+        if: needs.changes.outputs.frontend == 'true'
+        working-directory: apps/web
+        run: pnpm run api:check
 
       - name: stylelint + eslint
         if: needs.changes.outputs.frontend == 'true'

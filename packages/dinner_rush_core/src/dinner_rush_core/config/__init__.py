@@ -52,6 +52,21 @@ class DispatchConfig(BaseModel):
     restaurant: RestaurantConfig
 
 
+class ServiceClientConfig(BaseModel):
+    """Tunables for every cross-service HTTP call (PHASES.md Phase 5) — kept
+    generic (not `kitchen_client`-specific) since dispatch needs the same
+    shape in Phase 7."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    timeout_seconds: float
+    retry_max_attempts: int
+    retry_base_delay_seconds: float
+    retry_max_delay_seconds: float
+    circuit_breaker_failure_threshold: int
+    circuit_breaker_reset_seconds: float
+
+
 class StreamsConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -107,6 +122,7 @@ class RootConfig(BaseModel):
     kitchen: KitchenConfig
     menu: list[MenuItemConfig]
     streams: StreamsConfig
+    service_client: ServiceClientConfig
 
 
 class ConfigNotFoundError(FileNotFoundError):

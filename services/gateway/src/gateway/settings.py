@@ -1,7 +1,8 @@
 """Django settings for the gateway service.
 
 Phase 2: the monolith — menu, customers, orders, pricing, HS256 JWT auth with
-roles, admin. See ADR 0002 for why HS256 now / RS256 JWKS in Phase 5.
+roles, admin. Phase 5 swaps HS256 for RS256 + a published JWKS (ADR 0002 §1,
+ADR 0005) now that kitchen is a second verifier.
 """
 
 import datetime
@@ -9,6 +10,8 @@ import os
 from pathlib import Path
 
 from corsheaders.defaults import default_headers
+
+from gateway.common.keys import get_private_key_pem, get_public_key_pem
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -56,8 +59,9 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": datetime.timedelta(hours=1),
     "REFRESH_TOKEN_LIFETIME": datetime.timedelta(days=7),
-    "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,
+    "ALGORITHM": "RS256",
+    "SIGNING_KEY": get_private_key_pem(),
+    "VERIFYING_KEY": get_public_key_pem(),
 }
 
 SPECTACULAR_SETTINGS = {

@@ -80,7 +80,8 @@ class OrderCreateView(APIView):
         )
         quote = None
         if reason is None:
-            quote = kitchen_client.get_capacity_quote(item_lines)
+            correlation_id = getattr(request, "correlation_id", None)
+            quote = kitchen_client.get_capacity_quote(item_lines, correlation_id=correlation_id)
             reason = rejection.capacity_rejection_reason(quote)
 
         with transaction.atomic():

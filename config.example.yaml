@@ -45,6 +45,18 @@ dispatch:
   address_grant_ttl_seconds: 3600 # SPEC.md §6.2
   eta_recalc_interval_seconds: 30
 
+# ─────────────────────────────────────────────────── service_client ──
+# Every cross-service HTTP call (gateway → kitchen today, → dispatch from
+# Phase 7). Real seconds, not domain time — token/connection freshness, not
+# simulation duration, so never divided by `speed`. PHASES.md Phase 5.
+service_client:
+  timeout_seconds: 5
+  retry_max_attempts: 3
+  retry_base_delay_seconds: 0.1
+  retry_max_delay_seconds: 1.0
+  circuit_breaker_failure_threshold: 5
+  circuit_breaker_reset_seconds: 30
+
 # ─────────────────────────────────────────────────────────── gateway ──
 gateway:
   delivery_fee_cents: 299
