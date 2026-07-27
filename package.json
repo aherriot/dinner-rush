@@ -1,0 +1,8 @@
+{
+  "name": "dinner-rush",
+  "private": true,
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=24"
+  }
+}

@@ -1,0 +1,150 @@
+# Dinner Rush — simulation and system configuration
+#
+# Copy to config.yaml. Mounted into every service; the simulator reads only the
+# `simulator` and `scenarios` sections.
+#
+# RULE: durations here are always DOMAIN seconds, never scaled. Services divide
+# by `speed` at the point of use. See SPEC.md §5. Storing pre-scaled values
+# breaks the no-virtual-clock design.
+
+speed: 1 # 1 | 10 | 60. Runtime-changeable via POST /admin/speed.
+
+# ─────────────────────────────────────────────────────────── kitchen ──
+kitchen:
+  ovens:
+    - { name: "Oven 1", slot_count: 6 }
+    - { name: "Oven 2", slot_count: 6 }
+    - { name: "Oven 3", slot_count: 4 }
+  stations:
+    - { name: "Prep", kind: prep, capacity: 3 }
+    - { name: "Assembly", kind: assembly, capacity: 2 }
+
+  tick_interval_seconds: 1 # scheduler loop; real seconds, not scaled
+  slot_reaper_interval_seconds: 5
+  slot_reaper_grace_seconds: 30 # past frees_at before reclaiming a stuck slot
+
+  # Backpressure. The single most important block in this file.
+  capacity:
+    max_queue_depth: 40 # hard refuse above this
+    max_projected_wait_seconds: 2700 # 45 min — refuse rather than over-promise
+    promise_buffer_seconds: 180
+    reject_when_all_ovens_down: true
+
+# ─────────────────────────────────────────────────────────── dispatch ──
+dispatch:
+  grid: { width: 100, height: 100 } # abstract city; no map tiles
+  restaurant: { x: 50, y: 50 }
+
+  courier_count: 8
+  courier_speed_cells_per_minute: { bike: 22, scooter: 38 }
+  search_radius_cells: 30 # GEOSEARCH radius for nearest-available
+  max_trips_per_courier: 2 # batching
+  batch_max_detour_cells: 8
+
+  assignment_retry_seconds: 10 # when no courier is in range
+  address_grant_ttl_seconds: 3600 # SPEC.md §6.2
+  eta_recalc_interval_seconds: 30
+
+# ─────────────────────────────────────────────────────────── gateway ──
+gateway:
+  delivery_fee_cents: 299
+  free_delivery_threshold_cents: 4000
+  max_delivery_distance_cells: 45 # beyond → rejected: outside_range
+  order_code_start: 4400
+
+# ─────────────────────────────────────────────────────────── menu ──
+# prep/bake seconds are domain time. oven_slots is the contended resource cost.
+menu:
+  - { sku: MARG, name: "Margherita",       price_cents: 1200, prep_seconds: 90,  bake_seconds: 420, oven_slots: 1 }
+  - { sku: PEPP, name: "Pepperoni",        price_cents: 1450, prep_seconds: 100, bake_seconds: 420, oven_slots: 1 }
+  - { sku: FUNG, name: "Funghi",           price_cents: 1400, prep_seconds: 120, bake_seconds: 450, oven_slots: 1 }
+  - { sku: DIAV, name: "Diavola",          price_cents: 1550, prep_seconds: 110, bake_seconds: 450, oven_slots: 1 }
+  - { sku: QUAT, name: "Quattro Formaggi", price_cents: 1650, prep_seconds: 130, bake_seconds: 480, oven_slots: 1 }
+  - { sku: PART, name: "Party Size",       price_cents: 2900, prep_seconds: 210, bake_seconds: 660, oven_slots: 2 }
+  - { sku: GARL, name: "Garlic Bread",     price_cents: 550,  prep_seconds: 40,  bake_seconds: 240, oven_slots: 1 }
+  - { sku: SALD, name: "Side Salad",       price_cents: 650,  prep_seconds: 60,  bake_seconds: 0,   oven_slots: 0 }
+
+# ─────────────────────────────────────────────────────────── simulator ──
+# The simulator is an ordinary API client. Nothing here grants it privilege.
+simulator:
+  api_base_url: http://gateway:8000/api/v1
+  dispatch_base_url: http://dispatch:8002
+
+  customers:
+    arrival: poisson # NOT a fixed-interval loop — an evaluator will look
+    baseline_rate_per_minute: 6
+    think_time_seconds: { min: 5, max: 40 }
+    basket_size_weights: { 1: 0.45, 2: 0.32, 3: 0.16, 4: 0.07 }
+    cancel_probability: 0.02
+    repeat_customer_probability: 0.35
+    population: 400
+
+  couriers:
+    position_report_interval_seconds: 5
+    pickup_dwell_seconds: { min: 40, max: 90 }
+    dropoff_dwell_seconds: { min: 30, max: 120 }
+    no_answer_probability: 0.03
+    spontaneous_offline_probability: 0.005 # per shift-minute
+
+# ─────────────────────────────────────────────────────────── scenarios ──
+# Chaos as parameter deltas, applied over the baseline above. Triggered by
+# POST /admin/scenarios/{name}/start. Each is a demo beat.
+scenarios:
+  friday_rush:
+    description: "Order rate triples. Queue climbs, promises stretch, door closes."
+    duration_seconds: 600
+    overrides:
+      simulator.customers.baseline_rate_per_minute: 18
+      simulator.customers.basket_size_weights: { 1: 0.25, 2: 0.35, 3: 0.25, 4: 0.15 }
+    expect: "queue_depth > 30; rejections begin; p95 promise error grows"
+
+  oven_down:
+    description: "Oven 3 fails. Capacity drops, queue reorders, ETAs re-quote."
+    duration_seconds: 300
+    actions:
+      - { at_seconds: 0,   call: "POST /admin/ovens/{oven_3}/status", body: { status: down } }
+      - { at_seconds: 300, call: "POST /admin/ovens/{oven_3}/status", body: { status: available } }
+    expect: "oven_slots_total drops by 4; in-flight bakes finish; recovery drains"
+
+  courier_offline:
+    description: "A courier vanishes mid-delivery. Reassign, re-ETA, notify."
+    overrides:
+      simulator.couriers.spontaneous_offline_probability: 0.25
+    expect: "trip returns to ready; new courier assigned; address_grant revoked"
+
+  ingredient_shortage:
+    description: "Cheese runs out. Availability propagates to the storefront."
+    duration_seconds: 240
+    actions:
+      - { at_seconds: 0,   call: "POST /admin/menu/QUAT/availability", body: { available: false } }
+      - { at_seconds: 0,   call: "POST /admin/menu/MARG/availability", body: { available: false } }
+      - { at_seconds: 240, call: "POST /admin/menu/QUAT/availability", body: { available: true } }
+      - { at_seconds: 240, call: "POST /admin/menu/MARG/availability", body: { available: true } }
+    expect: "storefront greys items within one tick; orders for them → rejected: item_unavailable"
+
+  # The one to record. Degraded mode is the argument for the service split.
+  dispatch_down:
+    description: "Dispatch is killed. Orders still cook. Delivery stalls. Recovery drains."
+    manual: "docker compose stop dispatch  →  wait 90s  →  docker compose start dispatch"
+    expect: |
+      gateway and kitchen stay healthy; orders continue to reach `ready`;
+      stream_pending{group=cg:dispatch} climbs monotonically;
+      zero 5xx on POST /orders throughout;
+      on restart XAUTOCLAIM drains the backlog and every ready order is assigned.
+
+# ─────────────────────────────────────────────────────────── observability ──
+observability:
+  otel_endpoint: http://otel-collector:4317
+  trace_sample_ratio: 1.0 # local demo: trace everything
+  metrics_port: 9100
+  log_level: INFO
+  log_format: json # correlation_id on every line
+
+# ─────────────────────────────────────────────────────────── streams ──
+streams:
+  maxlen: 100000 # XADD MAXLEN ~ ; keep the laptop honest
+  claim_min_idle_seconds: 30 # XAUTOCLAIM threshold — the recovery mechanism
+  read_block_ms: 2000
+  read_count: 64
+  outbox_poll_ms: 100 # fallback; LISTEN/NOTIFY is the fast path
+  outbox_batch: 100

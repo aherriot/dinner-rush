@@ -1,0 +1,46 @@
+[project]
+name = "dinner-rush"
+version = "0.1.0"
+description = "Root workspace — not published, not installed"
+requires-python = ">=3.13"
+
+[tool.uv.workspace]
+members = ["packages/dinner_rush_core", "services/gateway"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16,<0.17",
+    "mypy>=2.3,<3",
+    "pytest>=9.1,<10",
+    "pytest-repeat>=0.9,<1",
+    "testcontainers>=4.15,<5",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["packages/dinner_rush_core/src", "services/gateway/src"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "I", "UP", "B", "SIM", "C4", "PIE", "RUF",
+]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["dinner_rush_core", "gateway"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+mypy_path = ["packages/dinner_rush_core/src", "services/gateway/src"]
+files = ["packages/dinner_rush_core/src", "services/gateway/src"]
+plugins = []
+
+[[tool.mypy.overrides]]
+module = "gateway.settings"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["services/gateway/tests", "packages/dinner_rush_core/tests"]
+DJANGO_SETTINGS_MODULE = "gateway.settings"

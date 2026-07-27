@@ -1,0 +1,15 @@
+[project]
+name = "dinner-rush-core"
+version = "0.1.0"
+description = "Shared envelope, transport, auth and config code for all Dinner Rush services"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.13,<3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dinner_rush_core"]
