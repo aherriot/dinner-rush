@@ -10,9 +10,12 @@ from tests.orders.conftest import customer_token, manager_token
 
 @pytest.fixture(autouse=True)
 def no_background_progression(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Order creation kicks off a background thread; API tests only assert
-    on the synchronous response, so the thread is a no-op here."""
-    monkeypatch.setattr(orders_views, "start_fake_progression", lambda order_id: None)
+    """Order creation kicks off the Celery cook-progression chain; API tests
+    only assert on the synchronous response, so scheduling it is a no-op
+    here (there's no worker running in this test process anyway)."""
+    monkeypatch.setattr(
+        orders_views, "start_progression", lambda order, sequence, causation_id: None
+    )
 
 
 @pytest.mark.django_db

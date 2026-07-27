@@ -14,15 +14,16 @@ from gateway.catalog.models import MenuItem
 from gateway.common.authentication import get_actor
 from gateway.common.permissions import IsCustomer, IsOwnOrderOrManager
 from gateway.customers.models import Address, Customer
+from gateway.eventing.writer import build_envelope, write_outbox_event
 from gateway.orders import pricing, rejection
 from gateway.orders.fsm import apply_transition
 from gateway.orders.models import Order, OrderCodeSequence, OrderItem, OrderStatusEvent
-from gateway.orders.progression import start_fake_progression
 from gateway.orders.serializers import (
     OrderCreateRequestSerializer,
     OrderSerializer,
     OrderStatusEventSerializer,
 )
+from gateway.orders.tasks import start_progression
 
 
 def _next_order_code(order_code_start: int) -> str:
@@ -101,6 +102,26 @@ class OrderCreateView(APIView):
             ]
             OrderItem.objects.bulk_create(order_items)
 
+            item_lines: list[dict[str, object]] = [
+                {"sku": item["sku"], "qty": item["qty"]} for item in payload["items"]
+            ]
+            placed_envelope = build_envelope(
+                event_type="order.placed",
+                aggregate_type="order",
+                aggregate_id=order.id,
+                sequence=1,
+                correlation_id=order.id,
+                payload={
+                    "code": order.code,
+                    "customer_id": str(customer.id),
+                    "items": item_lines,
+                    "total_cents": order.total_cents,
+                    "grid_x": address.grid_x,
+                    "grid_y": address.grid_y,
+                },
+            )
+            write_outbox_event(placed_envelope)
+
             subtotal = pricing.subtotal_cents(
                 [(oi.unit_price_cents, oi.qty) for oi in order_items]
             )
@@ -119,6 +140,17 @@ class OrderCreateView(APIView):
                 OrderStatusEvent.objects.create(
                     order=order, from_status="placed", to_status="rejected", event="reject"
                 )
+                write_outbox_event(
+                    build_envelope(
+                        event_type="order.rejected",
+                        aggregate_type="order",
+                        aggregate_id=order.id,
+                        sequence=2,
+                        correlation_id=order.id,
+                        causation_id=placed_envelope.event_id,
+                        payload={"code": order.code, "reason": reason, "queue_depth": 0},
+                    )
+                )
                 response_status = 202
             else:
                 order.status = apply_transition("placed", "accept")
@@ -128,10 +160,24 @@ class OrderCreateView(APIView):
                 OrderStatusEvent.objects.create(
                     order=order, from_status="placed", to_status="accepted", event="accept"
                 )
+                accepted_envelope = build_envelope(
+                    event_type="order.accepted",
+                    aggregate_type="order",
+                    aggregate_id=order.id,
+                    sequence=2,
+                    correlation_id=order.id,
+                    causation_id=placed_envelope.event_id,
+                    payload={
+                        "code": order.code,
+                        "promised_at": order.promised_at,
+                        "items": item_lines,
+                    },
+                )
+                write_outbox_event(accepted_envelope)
                 response_status = 201
 
         if response_status == 201:
-            start_fake_progression(str(order.id))
+            start_progression(order, sequence=3, causation_id=str(accepted_envelope.event_id))
 
         order = Order.objects.prefetch_related("items").get(id=order.id)
         return Response(OrderSerializer(order).data, status=response_status)

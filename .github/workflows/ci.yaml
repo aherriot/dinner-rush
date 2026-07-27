@@ -190,6 +190,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Provide config.yaml
+        run: cp config.example.yaml config.yaml
+
       - name: Bring the stack up
         run: docker compose up -d --build
 

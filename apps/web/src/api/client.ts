@@ -10,6 +10,10 @@ export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
 
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
 export const api = createClient<paths>({ baseUrl: GATEWAY_URL });
 
 api.use({

@@ -52,6 +52,17 @@ class DispatchConfig(BaseModel):
     restaurant: RestaurantConfig
 
 
+class StreamsConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    maxlen: int
+    claim_min_idle_seconds: int
+    read_block_ms: int
+    read_count: int
+    outbox_poll_ms: int
+    outbox_batch: int
+
+
 class RootConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -59,6 +70,7 @@ class RootConfig(BaseModel):
     gateway: GatewayConfig
     dispatch: DispatchConfig
     menu: list[MenuItemConfig]
+    streams: StreamsConfig
 
 
 class ConfigNotFoundError(FileNotFoundError):
