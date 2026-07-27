@@ -3,18 +3,23 @@ from rest_framework.test import APIClient
 
 from gateway.catalog.models import MenuItem
 from gateway.customers.models import Address, Customer
+from gateway.orders import kitchen_client
 from gateway.orders import views as orders_views
 from gateway.orders.models import Order
 from tests.orders.conftest import customer_token, manager_token
 
 
 @pytest.fixture(autouse=True)
-def no_background_progression(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Order creation kicks off the Celery cook-progression chain; API tests
-    only assert on the synchronous response, so scheduling it is a no-op
-    here (there's no worker running in this test process anyway)."""
+def accepting_kitchen(monkeypatch: pytest.MonkeyPatch) -> None:
+    """API tests don't run kitchen — stand in with a quote that always says
+    yes, matching Phase 2/3's "capacity is unreachable" behaviour, now
+    explicit rather than implicit."""
     monkeypatch.setattr(
-        orders_views, "start_progression", lambda order, sequence, causation_id: None
+        orders_views.kitchen_client,
+        "get_capacity_quote",
+        lambda items: kitchen_client.CapacityQuote(
+            can_accept=True, queue_depth=0, projected_wait_s=300.0
+        ),
     )
 
 
@@ -110,6 +115,64 @@ def test_order_outside_delivery_range_is_rejected_with_202(
 
     assert response.status_code == 202
     assert response.json()["rejection_reason"] == "outside_range"
+
+
+@pytest.mark.django_db
+def test_order_rejected_at_capacity_when_kitchen_says_no(
+    monkeypatch: pytest.MonkeyPatch,
+    as_customer: APIClient,
+    menu_item: MenuItem,
+    customer_with_address: tuple[Customer, Address],
+) -> None:
+    monkeypatch.setattr(
+        orders_views.kitchen_client,
+        "get_capacity_quote",
+        lambda items: kitchen_client.CapacityQuote(
+            can_accept=False, queue_depth=41, projected_wait_s=3000.0
+        ),
+    )
+    _, address = customer_with_address
+
+    response = as_customer.post(
+        "/api/v1/orders",
+        {"address_id": str(address.id), "items": [{"sku": menu_item.sku, "qty": 1}]},
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="key-at-capacity",
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "rejected"
+    assert body["rejection_reason"] == "at_capacity"
+
+
+@pytest.mark.django_db
+def test_unavailable_item_short_circuits_before_calling_kitchen(
+    monkeypatch: pytest.MonkeyPatch,
+    as_customer: APIClient,
+    menu_item: MenuItem,
+    customer_with_address: tuple[Customer, Address],
+) -> None:
+    """No reason to ask kitchen about capacity for an order that's already
+    rejected for a free, local reason."""
+    menu_item.available = False
+    menu_item.save()
+    _, address = customer_with_address
+
+    def _fail_if_called(items: list[dict[str, object]]) -> kitchen_client.CapacityQuote:
+        raise AssertionError("kitchen should not have been called")
+
+    monkeypatch.setattr(orders_views.kitchen_client, "get_capacity_quote", _fail_if_called)
+
+    response = as_customer.post(
+        "/api/v1/orders",
+        {"address_id": str(address.id), "items": [{"sku": menu_item.sku, "qty": 1}]},
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="key-short-circuit",
+    )
+
+    assert response.status_code == 202
+    assert response.json()["rejection_reason"] == "item_unavailable"
 
 
 @pytest.mark.django_db

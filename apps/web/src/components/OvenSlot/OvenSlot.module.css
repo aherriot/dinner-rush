@@ -36,8 +36,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.label span {
   font-family: var(--font-mono);
   font-size: var(--text-caption-size);
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
+  background: var(--bg-panel);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--panel-gap);
 }

@@ -1,6 +1,8 @@
 from dinner_rush_core.config import (
+    CapacityConfig,
     DispatchConfig,
     GatewayConfig,
+    KitchenConfig,
     RestaurantConfig,
     RootConfig,
     StreamsConfig,
@@ -20,6 +22,19 @@ def _config(max_delivery_distance_cells: int = 45) -> RootConfig:
             order_code_start=4400,
         ),
         dispatch=DispatchConfig(restaurant=RestaurantConfig(x=50, y=50)),
+        kitchen=KitchenConfig(
+            ovens=[],
+            stations=[],
+            tick_interval_seconds=1,
+            slot_reaper_interval_seconds=5,
+            slot_reaper_grace_seconds=30,
+            capacity=CapacityConfig(
+                max_queue_depth=40,
+                max_projected_wait_seconds=2700,
+                promise_buffer_seconds=180,
+                reject_when_all_ovens_down=True,
+            ),
+        ),
         menu=[],
         streams=StreamsConfig(
             maxlen=100_000,

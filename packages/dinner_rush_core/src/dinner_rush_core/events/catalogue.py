@@ -9,6 +9,7 @@ needed nor promised.
 from pydantic import BaseModel, ConfigDict
 
 from dinner_rush_core.events.schemas import (
+    ItemStartedPayload,
     OrderAcceptedPayload,
     OrderBakedPayload,
     OrderBakingPayload,
@@ -18,6 +19,9 @@ from dinner_rush_core.events.schemas import (
     OrderQueuedPayload,
     OrderReadyPayload,
     OrderRejectedPayload,
+    OvenSlotFreedPayload,
+    OvenStatusChangedPayload,
+    StationDownPayload,
 )
 
 
@@ -45,6 +49,20 @@ EVENT_CATALOGUE: dict[str, EventSchema] = {
         version=1, payload_model=OrderDeliveredPayload, stream="events:order"
     ),
     "order.failed": EventSchema(version=1, payload_model=OrderFailedPayload, stream="events:order"),
+    "item.started": EventSchema(version=1, payload_model=ItemStartedPayload, stream="events:order"),
+    # `oven`/`station` have no dedicated stream in DECISIONS.md §0003's fixed
+    # three (`events:order`, `events:oven`, `events:courier`) — both kitchen-
+    # infra event types share `events:oven`.
+    "oven.slot_freed": EventSchema(
+        version=1, payload_model=OvenSlotFreedPayload, stream="events:oven"
+    ),
+    "oven.down": EventSchema(
+        version=1, payload_model=OvenStatusChangedPayload, stream="events:oven"
+    ),
+    "oven.restored": EventSchema(
+        version=1, payload_model=OvenStatusChangedPayload, stream="events:oven"
+    ),
+    "station.down": EventSchema(version=1, payload_model=StationDownPayload, stream="events:oven"),
 }
 
 
