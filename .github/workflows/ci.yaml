@@ -97,6 +97,10 @@ jobs:
         working-directory: apps/web
         run: pnpm run test:unit
 
+      - name: Install Playwright browser (for Storybook's Vitest addon)
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Storybook interaction + a11y tests
         working-directory: apps/web
         run: pnpm run test:storybook
