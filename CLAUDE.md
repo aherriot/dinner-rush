@@ -206,6 +206,9 @@ why mixed Django/FastAPI.
 **Frontend** — components colocate `Component.tsx`, `Component.module.css`,
 `Component.stories.tsx`, `Component.test.tsx`. Every component gets loading,
 empty and error stories; those states are where portfolio UIs get exposed.
+**Any UI work — new component, styling, screen — uses the `design-system`
+skill** (`.claude/skills/design-system/SKILL.md`) for the enforcement
+gotchas that don't show up just from reading DESIGN.md.
 
 ---
 
