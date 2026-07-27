@@ -232,24 +232,40 @@ the slot fill, which becomes a stepped update. This is a media query in
 
 Built in Phase 1, in Storybook, before any screen exists.
 
-| Component | States that must be in Storybook |
-| --- | --- |
-| `Button` | primary, secondary, ghost, danger × default/hover/active/focus/disabled/loading |
-| `StatusPill` | all 13 order states, plus each with the `late` modifier |
-| `Panel` | with/without title, with toolbar, loading, empty, error |
-| `DataTable` | dense/default, sorted, empty, loading skeleton, 500-row virtualised |
-| `Meter` | 0/25/50/100%, at-capacity, over-capacity, down |
-| `Sparkline` | flat, rising, falling, single point, no data |
-| `MetricTile` | value, value + delta, no data, stale |
-| `Toolbar` | segmented control, toggle group, disabled |
-| `Modal` | confirm, destructive-confirm |
-| `Toast` | info, success, warning, error, stacked ×3 |
-| `OvenSlot` | free, reserved, occupied 0–100%, down |
-| `CourierDot` | idle, active, offline, selected |
+**Headless UI first.** Anywhere a component needs focus management, keyboard
+navigation or ARIA state, reach for `@headlessui/react` before writing it by
+hand — it ships zero styling, so it costs nothing against the token-purity
+rule in §9, and it removes an entire class of bugs (focus traps, roving
+tabindex, escape-to-close) from the surface we're responsible for. Our code
+is limited to: composing the primitive, mapping its `data-*` state attributes
+(`data-hover`, `data-checked`, `data-open`, …) to semantic tokens, and adding
+the domain content. What's left as hand-built is exactly the set Headless UI
+doesn't attempt: data visualisation and dense-data rendering.
+
+| Component | Built on | States that must be in Storybook |
+| --- | --- | --- |
+| `Button` | Headless UI `Button` | primary, secondary, ghost, danger × default/hover/active/focus/disabled/loading |
+| `StatusPill` | custom — domain visual, no Headless UI equivalent | all 13 order states, plus each with the `late` modifier |
+| `Panel` | custom layout; wraps Headless UI `Disclosure` when collapsible | with/without title, with toolbar, loading, empty, error |
+| `DataTable` | custom — Headless UI has no table primitive | dense/default, sorted, empty, loading skeleton, 500-row virtualised |
+| `Meter` | custom — data visualisation | 0/25/50/100%, at-capacity, over-capacity, down |
+| `Sparkline` | custom — SVG data visualisation | flat, rising, falling, single point, no data |
+| `MetricTile` | custom — token + typography composition | value, value + delta, no data, stale |
+| `Toolbar` | composes Headless UI `RadioGroup` (segmented control, e.g. speed) and `Menu` (overflow actions, e.g. chaos scenarios) | segmented control, toggle group, disabled |
+| `Select` | Headless UI `Listbox` — admin controls: oven status, menu availability | default, open, disabled, error |
+| `Modal` | Headless UI `Dialog` (built-in enter/exit transition) | confirm, destructive-confirm |
+| `Toast` | custom — no Headless UI equivalent; uses Headless UI `Transition` for enter/exit only | info, success, warning, error, stacked ×3 |
+| `OvenSlot` | custom — domain visualisation | free, reserved, occupied 0–100%, down |
+| `CourierDot` | custom — domain visualisation | idle, active, offline, selected |
 
 **Empty, loading and error states are mandatory for every component.** They are
 where portfolio UIs are exposed, and they are the states a live board spends
 real time in.
+
+The Headless UI dependency does not relax §9: a `Component.module.css` styling
+a Headless UI primitive is still bound by the semantic-tokens-only rule, and
+state selectors like `&[data-checked]` take a token the same way `:hover`
+would.
 
 ---
 

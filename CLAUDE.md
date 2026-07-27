@@ -91,7 +91,7 @@ contains no domain logic — envelopes, transport, auth, config, nothing else.
 | Kitchen | FastAPI, Celery 5.x, SQLAlchemy 2.x |
 | Dispatch | FastAPI, SQLAlchemy 2.x, redis-py |
 | Data | Postgres 16, Redis 7.4 (streams, GEO, cache, Celery broker) |
-| Frontend | Node 22, React 19, TypeScript 5.x, Vite, Storybook, Playwright |
+| Frontend | Node 22, React 19, TypeScript 5.x, Vite, Headless UI, Storybook, Playwright |
 | Tooling | uv, ruff, mypy (strict), pytest, pnpm, stylelint, eslint |
 | Observability | OpenTelemetry, Prometheus, Grafana |
 
@@ -139,6 +139,16 @@ Violating any of these is a defect regardless of whether tests pass.
   spacing property is a defect
 - Status is never encoded by colour alone — glyph and label carry it too
 - `rejected` is violet, not red. It is correct behaviour, not an error
+- **Interactive primitives are built on Headless UI, not from scratch.**
+  Dialog, Menu, Listbox/Combobox, RadioGroup, Switch, Tabs, Disclosure and
+  Popover supply focus management, keyboard navigation and ARIA wiring;
+  our code only skins them with semantic tokens via `data-*` state
+  selectors. Writing a bespoke focus trap or roving-tabindex handler is a
+  defect if Headless UI already ships the interaction — see DESIGN.md §7
+  for the component-by-component mapping. This does not extend to
+  domain-specific visualisation (`StatusPill`, `Panel`, `DataTable`,
+  `Meter`, `Sparkline`, `OvenSlot`, `CourierDot`) or `Toast`, none of which
+  Headless UI covers — those stay hand-built
 
 **API**
 

@@ -88,10 +88,21 @@ defined once, specified in Storybook, and never redrawn per surface. A demo
 screen with a hand-placed logo in the corner reads as unfinished in exactly the
 frame where polish is being judged.
 
+**Headless UI over hand-built interaction logic.** `Button`, `Modal`, `Select`
+and the interactive pieces of `Toolbar` are thin, token-styled wrappers around
+`@headlessui/react` (`Button`, `Dialog`, `Listbox`, `RadioGroup`, `Menu`), not
+components built from scratch — see DESIGN.md §7 for the full mapping. That
+buys focus management, keyboard navigation and ARIA state for free and keeps
+this phase's actual custom-code surface to the pieces Headless UI has no
+opinion on: `StatusPill`, `Panel`, `Table`, `Meter`, `Sparkline`, `Toast`, plus
+the layout grid the board needs. Reach for Headless UI before writing a focus
+trap or a roving-tabindex handler by hand — if you're doing either, check
+DESIGN.md §7 first.
+
 **Primitives to build:** Button, StatusPill, Panel, Table (dense, virtualised),
-Meter, Sparkline, Toolbar, Modal, Toast, plus the layout grid the board needs.
-Storybook covering every state including loading, empty, error and overflow —
-empty and error states are where portfolio UIs are exposed.
+Meter, Sparkline, Toolbar, Select, Modal, Toast, plus the layout grid the
+board needs. Storybook covering every state including loading, empty, error
+and overflow — empty and error states are where portfolio UIs are exposed.
 
 **Enforcement, which is the whole point.**
 

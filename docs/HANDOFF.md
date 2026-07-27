@@ -55,6 +55,12 @@ primitive/semantic layer separation (§9.2), every component in §7 with all
 listed states in Storybook including empty, loading and error, the stylelint and
 eslint configuration in §9.3, and every check in §9.4 wired into CI.
 
+§7 now specifies which components sit on top of `@headlessui/react` (Button,
+Modal, Select, and the interactive half of Toolbar) versus which are fully
+custom. Build the Headless UI ones as token-styled wrappers, not from
+scratch — do not hand-roll focus traps, roving tabindex or ARIA wiring that
+Headless UI already provides.
+
 Done means: Storybook builds with every component in light and dark; the
 contrast unit test passes over tokens.json; and a commit introducing
 `color: #3b82f6` into a component fails CI with a readable error. Prove that
