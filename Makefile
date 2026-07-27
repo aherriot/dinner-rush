@@ -1,15 +1,16 @@
 .PHONY: up down seed demo sim rush test test-fe lint storybook load
 
 up: ## bring the stack up; every container healthy in <90s
+	@test -f config.yaml || cp config.example.yaml config.yaml
 	docker compose up -d --build
 	docker compose ps
+	docker compose exec gateway python manage.py migrate
 
 down:
 	docker compose down -v
 
-seed: ## menu, customers, couriers, ovens from config.yaml — lands in Phase 2
-	@echo "make seed: not implemented yet — see PHASES.md Phase 2"
-	@exit 1
+seed: ## menu, customers, staff from config.yaml
+	docker compose exec gateway python manage.py seed
 
 demo: up seed ## up + seed + open the board — the one-command entry point
 	@echo "make demo: board UI lands in Phase 8 — see PHASES.md"
@@ -32,10 +33,13 @@ test-fe: ## vitest + Playwright visual regression
 	cd apps/web && pnpm exec playwright install --with-deps chromium
 	cd apps/web && pnpm run test:visual
 
-lint: ## ruff, mypy, stylelint, eslint, token build check
+lint: ## ruff, mypy, stylelint, eslint, token + generated-client drift check
 	uv run ruff check .
 	uv run mypy
+	cd services/gateway && uv run python manage.py spectacular --format openapi-json --file openapi.json --fail-on-warn
+	git diff --exit-code -- services/gateway/openapi.json
 	cd apps/web && pnpm run tokens:check
+	cd apps/web && pnpm run api:check
 	cd apps/web && pnpm run lint
 
 storybook: ## design system — tokens, primitives, DINNER RUSH wordmark

@@ -12,6 +12,8 @@
     "build-storybook": "storybook build",
     "tokens:build": "node scripts/build-tokens.mjs",
     "tokens:check": "node scripts/build-tokens.mjs && git diff --exit-code -- src/design/tokens.css src/design/tokens.ts src/design/tokens.storybook.ts",
+    "api:generate": "openapi-typescript ../../services/gateway/openapi.json -o src/api/schema.ts",
+    "api:check": "pnpm run api:generate && git diff --exit-code -- src/api/schema.ts",
     "lint:css": "stylelint 'src/**/*.css' '.storybook/**/*.css'",
     "lint:js": "eslint .",
     "lint": "pnpm lint:css && pnpm lint:js",
@@ -23,8 +25,10 @@
   },
   "dependencies": {
     "@headlessui/react": "2.2.10",
+    "openapi-fetch": "0.17.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-router-dom": "7.18.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
@@ -51,6 +55,7 @@
     "eslint-plugin-storybook": "10.5.5",
     "globals": "17.8.0",
     "jsdom": "30.0.0",
+    "openapi-typescript": "7.13.0",
     "playwright": "^1.62.0",
     "storybook": "^10.5.5",
     "stylelint": "17.14.1",

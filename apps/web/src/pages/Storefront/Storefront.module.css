@@ -1,0 +1,126 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
+  max-width: 720px;
+  margin-inline: auto;
+  padding: var(--panel-gutter);
+  min-height: 100svh;
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: var(--panel-gutter);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--panel-gutter);
+}
+
+.greeting {
+  color: var(--text-secondary);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gutter);
+  align-items: flex-start;
+}
+
+.login-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
+  width: 100%;
+  color: var(--text-secondary);
+}
+
+.login-input {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--control);
+  padding-inline: var(--panel-gutter);
+  border: var(--border-strong) 1px solid;
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  color: var(--text-primary);
+}
+
+.login-input:focus-visible {
+  border: var(--border-focus) 1px solid;
+}
+
+.login-error {
+  color: var(--status-failed);
+  margin: 0;
+}
+
+.hint {
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.menu-list,
+.cart-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.menu-row,
+.cart-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--panel-gutter);
+  padding-block: var(--panel-gap);
+}
+
+.menu-row:not(:last-child),
+.cart-row:not(:last-child) {
+  border-bottom: var(--border-subtle) 1px solid;
+}
+
+.menu-name {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.menu-price {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.cart-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--panel-gutter);
+  font-family: var(--font-mono);
+}
+
+.checkout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--panel-gutter);
+  padding-top: var(--panel-gutter);
+  border-top: var(--border-subtle) 1px solid;
+}
+
+.subtotal {
+  margin: 0;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}

@@ -1,12 +1,14 @@
 """Django settings for the gateway service.
 
-Phase 0 skeleton: enough wiring to prove the container boots, connects to its
-own Postgres database, and answers real readiness checks. Domain apps land in
-Phase 2.
+Phase 2: the monolith — menu, customers, orders, pricing, HS256 JWT auth with
+roles, admin. See ADR 0002 for why HS256 now / RS256 JWKS in Phase 5.
 """
 
+import datetime
 import os
 from pathlib import Path
+
+from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -18,14 +20,51 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.auth",
     "rest_framework",
+    "drf_spectacular",
+    "corsheaders",
     "channels",
     "gateway.health",
+    "gateway.catalog",
+    "gateway.customers",
+    "gateway.accounts",
+    "gateway.orders",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "gateway.common.middleware.CorrelationIdMiddleware",
 ]
+
+# Local-only: the storefront/tracker (Vite, :5173) calls the gateway (:8000)
+# cross-origin. This project is never hosted (CLAUDE.md §"This is a portfolio
+# project"), so an explicit dev-origin allowlist is enough — no wildcard.
+CORS_ALLOWED_ORIGINS = os.environ.get(
+    "CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+).split(",")
+CORS_ALLOW_HEADERS = [*default_headers, "idempotency-key"]
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": ["gateway.common.authentication.JWTRoleAuthentication"],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "EXCEPTION_HANDLER": "gateway.common.exceptions.problem_detail_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": datetime.timedelta(hours=1),
+    "REFRESH_TOKEN_LIFETIME": datetime.timedelta(days=7),
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Dinner Rush — gateway",
+    "DESCRIPTION": "Public API, admin API and websocket fanout.",
+    "VERSION": "0.1.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
 
 ROOT_URLCONF = "gateway.urls"
 ASGI_APPLICATION = "gateway.asgi.application"

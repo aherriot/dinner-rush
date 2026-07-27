@@ -1,6 +1,15 @@
-// Placeholder entry point. No screens exist yet — Phase 1 is components and
-// tokens only. Storybook (`pnpm storybook`) is where the design system lives
-// until the storefront (Phase 2) and board (Phase 8) are built.
+import { Route, Routes } from "react-router-dom";
+import { AuthProvider } from "./auth/AuthContext";
+import { OrderTracker } from "./pages/OrderTracker/OrderTracker";
+import { Storefront } from "./pages/Storefront/Storefront";
+
 export default function App() {
-  return <p className="text-body">Dinner Rush — see Storybook for the design system.</p>;
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<Storefront />} />
+        <Route path="/orders/:code" element={<OrderTracker />} />
+      </Routes>
+    </AuthProvider>
+  );
 }
