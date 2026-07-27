@@ -1,3 +1,42 @@
+x-gateway-image: &gateway-image
+  build:
+    context: .
+    dockerfile: services/gateway/Dockerfile
+
+x-gateway-env: &gateway-env
+  POSTGRES_HOST: gateway-db
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: gateway
+  POSTGRES_USER: gateway
+  POSTGRES_PASSWORD: gateway
+  REDIS_URL: redis://redis:6379/0
+  DJANGO_DEBUG: "true"
+  DJANGO_ALLOWED_HOSTS: "*"
+  CONFIG_PATH: /app/config.yaml
+
+x-gateway-volumes: &gateway-volumes
+  - ./config.yaml:/app/config.yaml:ro
+
+x-gateway-depends-on: &gateway-depends-on
+  gateway-db:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
+# The event spine's own processes (DECISIONS.md §0003/§0004) are separate
+# containers, not threads inside `gateway`, so any one of them can be killed
+# on its own for the Phase 10 recovery demo. They share the gateway image —
+# same code, different `command:` — and use a liveness-only healthcheck
+# (no HTTP endpoint to poll): good enough to keep `make up`'s "every
+# container healthy" promise without pretending to measure queue health,
+# which is what `stream_pending` (Phase 9) is actually for.
+x-worker-healthcheck: &worker-healthcheck
+  test: ["CMD", "python", "-c", "exit(0)"]
+  interval: 5s
+  timeout: 3s
+  retries: 10
+  start_period: 5s
+
 services:
   gateway-db:
     image: postgres:18.4-alpine
@@ -26,34 +65,56 @@ services:
       retries: 30
 
   gateway:
-    build:
-      context: .
-      dockerfile: services/gateway/Dockerfile
-    environment:
-      POSTGRES_HOST: gateway-db
-      POSTGRES_PORT: "5432"
-      POSTGRES_DB: gateway
-      POSTGRES_USER: gateway
-      POSTGRES_PASSWORD: gateway
-      REDIS_URL: redis://redis:6379/0
-      DJANGO_DEBUG: "true"
-      DJANGO_ALLOWED_HOSTS: "*"
-      CONFIG_PATH: /app/config.yaml
-    volumes:
-      - ./config.yaml:/app/config.yaml:ro
+    <<: *gateway-image
+    environment: *gateway-env
+    volumes: *gateway-volumes
     ports:
       - "8000:8000"
-    depends_on:
-      gateway-db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    depends_on: *gateway-depends-on
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz', timeout=2)"]
       interval: 2s
       timeout: 3s
       retries: 30
       start_period: 10s
+
+  celery-worker:
+    <<: *gateway-image
+    command: ["celery", "-A", "gateway", "worker", "--loglevel=info"]
+    environment: *gateway-env
+    volumes: *gateway-volumes
+    depends_on: *gateway-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
+  outbox-relay:
+    <<: *gateway-image
+    command: ["python", "manage.py", "relay"]
+    environment: *gateway-env
+    volumes: *gateway-volumes
+    depends_on: *gateway-depends-on
+    healthcheck: *worker-healthcheck
+    # Restarts in a crash loop until `make up`'s `migrate` step creates the
+    # `outbox` table — self-correcting, same as the relay's own poll fallback.
+    restart: unless-stopped
+
+  consumer-analytics:
+    <<: *gateway-image
+    command: ["python", "manage.py", "stream_consumer", "--group", "cg:analytics"]
+    environment: *gateway-env
+    volumes: *gateway-volumes
+    depends_on: *gateway-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
+  consumer-ws-fanout:
+    <<: *gateway-image
+    command: ["python", "manage.py", "stream_consumer", "--group", "cg:ws-fanout"]
+    environment: *gateway-env
+    volumes: *gateway-volumes
+    depends_on: *gateway-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
 
 volumes:
   gateway-db-data:

@@ -23,4 +23,7 @@ WORKDIR /app/services/gateway
 
 EXPOSE 8000
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Daphne, not `runserver` — Phase 3 adds a real websocket route
+# (/ws/orders/{code}), and `manage.py relay`/`stream_consumer`/celery worker
+# override this CMD via compose.yaml's `command:` on the same image.
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "gateway.asgi:application"]

@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "gateway.customers",
     "gateway.accounts",
     "gateway.orders",
+    "gateway.eventing",
 ]
 
 MIDDLEWARE = [
@@ -95,6 +96,13 @@ DATABASES = {
 }
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+
+# Scheduled/delayed work only (DECISIONS.md §0003) — the cook-progression
+# countdown chain. No result backend: fire-and-forget, nothing ever reads a
+# task's return value.
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = None
+CELERY_TASK_DEFAULT_QUEUE = "gateway"
 
 CHANNEL_LAYERS = {
     "default": {

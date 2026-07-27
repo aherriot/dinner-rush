@@ -1,4 +1,10 @@
-from dinner_rush_core.config import DispatchConfig, GatewayConfig, RestaurantConfig, RootConfig
+from dinner_rush_core.config import (
+    DispatchConfig,
+    GatewayConfig,
+    RestaurantConfig,
+    RootConfig,
+    StreamsConfig,
+)
 from gateway.catalog.models import MenuItem
 from gateway.customers.models import Address
 from gateway.orders.rejection import chebyshev_distance, rejection_reason
@@ -15,6 +21,14 @@ def _config(max_delivery_distance_cells: int = 45) -> RootConfig:
         ),
         dispatch=DispatchConfig(restaurant=RestaurantConfig(x=50, y=50)),
         menu=[],
+        streams=StreamsConfig(
+            maxlen=100_000,
+            claim_min_idle_seconds=30,
+            read_block_ms=2000,
+            read_count=64,
+            outbox_poll_ms=100,
+            outbox_batch=100,
+        ),
     )
 
 
