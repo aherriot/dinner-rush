@@ -1,4 +1,4 @@
 # Design tokens
 
 `tokens.json` → `tokens.css` + `tokens.ts` pipeline. Built in Phase 1 — see
-[DESIGN.md](../../../DESIGN.md) §9.1.
+[DESIGN.md](../../../../docs/DESIGN.md) §9.1.

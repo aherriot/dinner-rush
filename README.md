@@ -1,10 +1,11 @@
 # Dinner Rush
 
-A simulated pizza operation running under real load — see [PIZZA.md](PIZZA.md)
-for the pitch and [CLAUDE.md](CLAUDE.md) for the standing rules this repo is
-built against.
+A simulated pizza operation running under real load — see
+[docs/PIZZA.md](docs/PIZZA.md) for the pitch and [CLAUDE.md](CLAUDE.md) for
+the standing rules this repo is built against.
 
-Built in phases; see [PHASES.md](PHASES.md). Currently at **Phase 0 — Rails**.
+Built in phases; see [docs/PHASES.md](docs/PHASES.md). Currently at
+**Phase 0 — Rails**.
 
 ## Quickstart
 

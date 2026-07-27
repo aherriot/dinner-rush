@@ -2,7 +2,7 @@
 
 Prompts for handing each phase to an implementing agent. **One phase per
 session.** Handing over all twelve at once produces a broad, shallow build,
-which is the specific failure mode [CLAUDE.md](CLAUDE.md) §8 warns about.
+which is the specific failure mode [CLAUDE.md](../CLAUDE.md) §8 warns about.
 
 Copy the prompt, run the session, verify the acceptance criterion yourself
 (§14), then move on.

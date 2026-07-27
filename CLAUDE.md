@@ -15,11 +15,11 @@ scaling work, nothing that cannot be shown on one screen in 45 seconds.
 
 | Document | Contains |
 | --- | --- |
-| [PIZZA.md](PIZZA.md) | The original brief and the pitch. Read for intent |
-| [PHASES.md](PHASES.md) | Twelve build phases with acceptance criteria |
-| [DECISIONS.md](DECISIONS.md) | Slot allocation, event streams, outbox — specified to the SQL |
-| [SPEC.md](SPEC.md) | Domain model, FSM, API surface, events, permissions |
-| [DESIGN.md](DESIGN.md) | Design tokens with verified contrast, components, enforcement |
+| [docs/PIZZA.md](docs/PIZZA.md) | The original brief and the pitch. Read for intent |
+| [docs/PHASES.md](docs/PHASES.md) | Twelve build phases with acceptance criteria |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | Slot allocation, event streams, outbox — specified to the SQL |
+| [docs/SPEC.md](docs/SPEC.md) | Domain model, FSM, API surface, events, permissions |
+| [docs/DESIGN.md](docs/DESIGN.md) | Design tokens with verified contrast, components, enforcement |
 | [config.example.yaml](config.example.yaml) | Every tunable and the chaos scenarios |
 
 **Build in phase order.** Phases exist because later ones depend on

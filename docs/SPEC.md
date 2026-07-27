@@ -308,7 +308,7 @@ Kitchen and dispatch verify against it and cache the key. Claims: `sub`, `role`,
 with seeded credentials, one token per simulated actor. It has no service
 credentials, no database credentials, and no privileged scope. This is the
 premise of the whole project and it is enforced in `compose.yaml`, not by
-convention. See [CLAUDE.md](CLAUDE.md) §5.
+convention. See [CLAUDE.md](../CLAUDE.md) §5.
 
 ---
 

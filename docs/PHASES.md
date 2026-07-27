@@ -21,7 +21,7 @@ header, the ADRs — **never the phrase "food delivery app."**
 ## Phase 0 — Rails
 
 > Repo layout, stack versions, standing rules and the command surface are in
-> [CLAUDE.md](CLAUDE.md) §3–6. Start there.
+> [CLAUDE.md](../CLAUDE.md) §3–6. Start there.
 
 Repo layout, `compose.yaml`, one command that works from a clean clone.
 Postgres, Redis, gateway skeleton, healthchecks with real readiness. `make up`,
@@ -120,7 +120,7 @@ components. Seeded data so the demo has a menu that looks real.
 
 > Entities, FSM transition table, API surface, pricing and the roles matrix are
 > specified in [SPEC.md](SPEC.md) §1–3, §5–6. Menu and tunables come from
-> [config.example.yaml](config.example.yaml).
+> [config.example.yaml](../config.example.yaml).
 
 **Timebox this hard.** PIZZA.md is right that the CRUD half is worthless as a
 differentiator. The one thing worth doing properly is the **order state machine
@@ -219,7 +219,7 @@ to confirm it from `docker-compose.yml` alone.
 
 Poisson arrivals, not a fixed-interval loop. Think times, menu preferences,
 cancellations. Scenarios as YAML — all parameters and all five chaos scenarios
-are already specified in [config.example.yaml](config.example.yaml).
+are already specified in [config.example.yaml](../config.example.yaml).
 
 **Done means:** `make rush` produces genuine concurrent load through the public
 API and the kitchen visibly strains.
