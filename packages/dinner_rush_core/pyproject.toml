@@ -5,6 +5,7 @@ description = "Shared envelope, transport, auth and config code for all Dinner R
 requires-python = ">=3.13"
 dependencies = [
     "pydantic>=2.13,<3",
+    "pyyaml>=6.0,<7",
 ]
 
 [build-system]

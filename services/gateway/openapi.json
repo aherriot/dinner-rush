@@ -1,0 +1,795 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "Dinner Rush — gateway",
+        "version": "0.1.0",
+        "description": "Public API, admin API and websocket fanout."
+    },
+    "paths": {
+        "/api/v1/admin/menu/{sku}/availability": {
+            "post": {
+                "operationId": "v1_admin_menu_availability_create",
+                "description": "`POST /admin/menu/{sku}/availability` — manager only, SPEC.md §3.2.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "sku",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "v1"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MenuAvailability"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MenuAvailability"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MenuAvailability"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MenuItem"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/speed": {
+            "post": {
+                "operationId": "v1_admin_speed_create",
+                "description": "`POST /admin/speed` (SPEC.md §3.2) — manager only.",
+                "tags": [
+                    "v1"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Speed"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Speed"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Speed"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Speed"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/token": {
+            "post": {
+                "operationId": "v1_auth_token_create",
+                "description": "`POST /auth/token` (SPEC.md §3.1).\n\nStaff (kitchen/manager) authenticate with `username`+`password` against\n`django.contrib.auth`. Customers authenticate with just their seeded\n`email` — there is no signup flow in this phase and the customer table\nhas no credentials of its own (SPEC.md §1.1); see ADR 0002.",
+                "tags": [
+                    "v1"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRequest"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRequest"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TokenResponse"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/me": {
+            "get": {
+                "operationId": "v1_me_retrieve",
+                "tags": [
+                    "v1"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Customer"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/menu": {
+            "get": {
+                "operationId": "v1_menu_list",
+                "description": "`GET /menu` — every item, `available` included so a shortage scenario\ncan grey items out client-side rather than removing them.",
+                "tags": [
+                    "v1"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/MenuItem"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/orders": {
+            "post": {
+                "operationId": "v1_orders_create",
+                "description": "`POST /orders` (SPEC.md §3.1). Rejection is a 202, not an error.",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "v1"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrderCreateRequest"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrderCreateRequest"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrderCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Order"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Order"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/orders/{code}": {
+            "get": {
+                "operationId": "v1_orders_retrieve",
+                "description": "`GET /orders/{code}` — customer(own) / manager (SPEC.md §3.1).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "code",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "v1"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Order"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/orders/{code}/timeline": {
+            "get": {
+                "operationId": "v1_orders_timeline_list",
+                "description": "`GET /orders/{code}/timeline` — ordered event history.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "code",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "v1"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/OrderStatusEvent"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Address": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "label": {
+                        "type": "string",
+                        "maxLength": 50
+                    },
+                    "line1": {
+                        "type": "string",
+                        "maxLength": 200
+                    },
+                    "grid_x": {
+                        "type": "integer",
+                        "maximum": 32767,
+                        "minimum": -32768
+                    },
+                    "grid_y": {
+                        "type": "integer",
+                        "maximum": 32767,
+                        "minimum": -32768
+                    },
+                    "notes": {
+                        "type": "string",
+                        "maxLength": 200
+                    }
+                },
+                "required": [
+                    "grid_x",
+                    "grid_y",
+                    "id",
+                    "line1"
+                ]
+            },
+            "BlankEnum": {
+                "enum": [
+                    ""
+                ]
+            },
+            "Customer": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 254
+                    },
+                    "phone": {
+                        "type": "string",
+                        "maxLength": 30
+                    },
+                    "addresses": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Address"
+                        },
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "addresses",
+                    "email",
+                    "id",
+                    "name"
+                ]
+            },
+            "MenuAvailability": {
+                "type": "object",
+                "properties": {
+                    "available": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "available"
+                ]
+            },
+            "MenuItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "sku": {
+                        "type": "string",
+                        "maxLength": 20
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "base_price_cents": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0
+                    },
+                    "prep_seconds": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0
+                    },
+                    "bake_seconds": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0
+                    },
+                    "oven_slots": {
+                        "type": "integer",
+                        "maximum": 32767,
+                        "minimum": -32768
+                    },
+                    "station": {
+                        "$ref": "#/components/schemas/StationEnum"
+                    },
+                    "available": {
+                        "type": "boolean"
+                    },
+                    "sort_order": {
+                        "type": "integer",
+                        "maximum": 32767,
+                        "minimum": -32768
+                    }
+                },
+                "required": [
+                    "bake_seconds",
+                    "base_price_cents",
+                    "id",
+                    "name",
+                    "prep_seconds",
+                    "sku"
+                ]
+            },
+            "NullEnum": {
+                "enum": [
+                    null
+                ]
+            },
+            "Order": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "code": {
+                        "type": "string",
+                        "maxLength": 20
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/StatusEnum"
+                    },
+                    "subtotal_cents": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0
+                    },
+                    "delivery_fee_cents": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0
+                    },
+                    "total_cents": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0
+                    },
+                    "placed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "accepted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "promised_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "ready_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "delivered_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "rejection_reason": {
+                        "nullable": true,
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/RejectionReasonEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/NullEnum"
+                            }
+                        ]
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderItem"
+                        },
+                        "readOnly": true
+                    },
+                    "late": {
+                        "type": "boolean",
+                        "description": "Derived, never stored (SPEC.md §2) — now() > promised_at, not terminal.",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "code",
+                    "delivery_fee_cents",
+                    "id",
+                    "items",
+                    "late",
+                    "placed_at",
+                    "subtotal_cents",
+                    "total_cents"
+                ]
+            },
+            "OrderCreateRequest": {
+                "type": "object",
+                "properties": {
+                    "address_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderItemRequest"
+                        }
+                    }
+                },
+                "required": [
+                    "address_id",
+                    "items"
+                ]
+            },
+            "OrderItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "readOnly": true
+                    },
+                    "menu_item": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "qty": {
+                        "type": "integer",
+                        "maximum": 32767,
+                        "minimum": 0
+                    },
+                    "unit_price_cents": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0
+                    },
+                    "name_snapshot": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "prep_seconds_snapshot": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0
+                    },
+                    "bake_seconds_snapshot": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0
+                    }
+                },
+                "required": [
+                    "bake_seconds_snapshot",
+                    "id",
+                    "menu_item",
+                    "name_snapshot",
+                    "prep_seconds_snapshot",
+                    "qty",
+                    "unit_price_cents"
+                ]
+            },
+            "OrderItemRequest": {
+                "type": "object",
+                "properties": {
+                    "sku": {
+                        "type": "string"
+                    },
+                    "qty": {
+                        "type": "integer",
+                        "minimum": 1
+                    }
+                },
+                "required": [
+                    "qty",
+                    "sku"
+                ]
+            },
+            "OrderStatusEvent": {
+                "type": "object",
+                "properties": {
+                    "from_status": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 20
+                    },
+                    "to_status": {
+                        "type": "string",
+                        "maxLength": 20
+                    },
+                    "event": {
+                        "type": "string",
+                        "maxLength": 20
+                    },
+                    "occurred_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "event",
+                    "occurred_at",
+                    "to_status"
+                ]
+            },
+            "RejectionReasonEnum": {
+                "enum": [
+                    "at_capacity",
+                    "item_unavailable",
+                    "outside_range"
+                ],
+                "type": "string",
+                "description": "* `at_capacity` - at_capacity\n* `item_unavailable` - item_unavailable\n* `outside_range` - outside_range"
+            },
+            "Speed": {
+                "type": "object",
+                "properties": {
+                    "speed": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "speed"
+                ]
+            },
+            "StationEnum": {
+                "enum": [
+                    "prep",
+                    "assembly"
+                ],
+                "type": "string",
+                "description": "* `prep` - prep\n* `assembly` - assembly"
+            },
+            "StatusEnum": {
+                "enum": [
+                    "accepted",
+                    "assigned",
+                    "baking",
+                    "boxed",
+                    "delivered",
+                    "delivering",
+                    "failed",
+                    "picked_up",
+                    "placed",
+                    "prepping",
+                    "queued",
+                    "ready",
+                    "rejected"
+                ],
+                "type": "string",
+                "description": "* `accepted` - accepted\n* `assigned` - assigned\n* `baking` - baking\n* `boxed` - boxed\n* `delivered` - delivered\n* `delivering` - delivering\n* `failed` - failed\n* `picked_up` - picked_up\n* `placed` - placed\n* `prepping` - prepping\n* `queued` - queued\n* `ready` - ready\n* `rejected` - rejected"
+            },
+            "TokenRequest": {
+                "type": "object",
+                "description": "Schema-only shape for `POST /auth/token` — either `{email}` (customer)\nor `{username, password}` (staff); `TokenView` validates the real branch\nwith `CustomerTokenRequestSerializer`/`StaffTokenRequestSerializer`.",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "username": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    }
+                }
+            },
+            "TokenResponse": {
+                "type": "object",
+                "properties": {
+                    "access": {
+                        "type": "string"
+                    },
+                    "refresh": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "access",
+                    "refresh"
+                ]
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    }
+}

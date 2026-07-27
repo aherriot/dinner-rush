@@ -1,0 +1,36 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
+  max-width: 720px;
+  margin-inline: auto;
+  padding: var(--panel-gutter);
+  min-height: 100svh;
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+.header {
+  padding-block: var(--panel-gutter);
+}
+
+.wordmark-link {
+  text-decoration: none;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: var(--panel-gutter);
+}
+
+.total {
+  margin: 0;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.reason {
+  margin: 0;
+  color: var(--status-rejected);
+}
