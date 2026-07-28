@@ -35,4 +35,33 @@ describe("OrderTimeline", () => {
     render(<OrderTimeline state="error" errorMessage="network down" />);
     expect(screen.getByRole("alert")).toHaveTextContent("network down");
   });
+
+  it("shows the human-readable rejection reason on a rejected event", () => {
+    const events: TimelineEvent[] = [
+      {
+        event: "reject",
+        from_status: "placed",
+        to_status: "rejected",
+        occurred_at: "2026-01-01T12:00:01Z",
+        reason: "outside_range",
+      },
+    ];
+    render(<OrderTimeline events={events} />);
+    expect(screen.getByText("Outside delivery range")).toBeInTheDocument();
+  });
+
+  it("includes queue depth alongside an at-capacity rejection", () => {
+    const events: TimelineEvent[] = [
+      {
+        event: "reject",
+        from_status: "placed",
+        to_status: "rejected",
+        occurred_at: "2026-01-01T12:00:01Z",
+        reason: "at_capacity",
+        queue_depth: 42,
+      },
+    ];
+    render(<OrderTimeline events={events} />);
+    expect(screen.getByText(/Kitchen at capacity.*queue depth 42/)).toBeInTheDocument();
+  });
 });

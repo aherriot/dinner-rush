@@ -324,11 +324,12 @@ export interface components {
         };
         /**
          * @description Passthrough — same reasoning as `KitchenSnapshotSerializer`, for
-         *     dispatch's `TripOut`/`CourierOut`.
+         *     dispatch's `TripOut`/`CourierOut`/`BacklogOut`.
          */
         DispatchSnapshot: {
             trips: unknown;
             couriers: unknown;
+            backlog: unknown;
         };
         /**
          * @description Passthrough — kitchen's own `TicketOut`/`OvenOut` (FastAPI/Pydantic)
@@ -425,6 +426,8 @@ export interface components {
             event: string;
             /** Format: date-time */
             readonly occurred_at: string;
+            reason?: (components["schemas"]["RejectionReasonEnum"] | components["schemas"]["BlankEnum"] | components["schemas"]["NullEnum"]) | null;
+            queue_depth?: number | null;
         };
         OvenStatus: {
             status: components["schemas"]["OvenStatusStatusEnum"];

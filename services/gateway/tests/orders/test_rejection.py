@@ -35,6 +35,7 @@ def _config(max_delivery_distance_cells: int = 45) -> RootConfig:
             max_trips_per_courier=2,
             batch_max_detour_cells=8,
             assignment_retry_seconds=10,
+            max_assignment_retry_seconds=90,
             address_grant_ttl_seconds=3600,
             eta_recalc_interval_seconds=30,
         ),

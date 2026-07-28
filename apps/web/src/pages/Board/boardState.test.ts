@@ -110,6 +110,27 @@ describe("toTimelineEvent", () => {
       from_status: null,
       to_status: "accepted",
       occurred_at: "2026-01-01T00:00:05Z",
+      reason: null,
+      queue_depth: null,
+    });
+  });
+
+  it("carries the rejection reason and queue depth for a rejected event", () => {
+    const result = toTimelineEvent(
+      event({
+        event_type: "order.rejected",
+        occurred_at: "2026-01-01T00:00:05Z",
+        payload: { code: "4471", reason: "at_capacity", queue_depth: 42 },
+      }),
+      "4471",
+    );
+    expect(result).toEqual({
+      event: "order.rejected",
+      from_status: null,
+      to_status: "rejected",
+      occurred_at: "2026-01-01T00:00:05Z",
+      reason: "at_capacity",
+      queue_depth: 42,
     });
   });
 

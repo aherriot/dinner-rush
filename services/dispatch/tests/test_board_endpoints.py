@@ -1,9 +1,10 @@
-"""`GET /couriers` merging Postgres status with Redis position — the board's
-dispatch panel needs both (SPEC.md §3.4)."""
+"""`GET /couriers` merging Postgres status with Redis position, and
+`GET /backlog`'s `pending_dropoff`-with-no-`trip` count (SPEC.md §3.4)."""
 
 import os
+import uuid
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import redis
@@ -14,7 +15,7 @@ from dispatch.auth import get_claims
 from dispatch.db import get_session
 from dispatch.geo import set_position
 from dispatch.main import app
-from dispatch.models import Courier
+from dispatch.models import Courier, PendingDropoff, Trip
 
 _FULL_ACCESS_CLAIMS_KWARGS = {"sub": "gateway", "role": "service", "scope": ["dispatch:read"]}
 
@@ -79,3 +80,75 @@ def test_couriers_list_reports_null_position_for_a_courier_that_never_reported(
     [body] = response.json()
     assert body["x"] is None
     assert body["y"] is None
+
+
+def _make_pending_dropoff(session: Session, *, created_at: datetime) -> PendingDropoff:
+    pending = PendingDropoff(
+        order_id=uuid.uuid4(),
+        code=f"T{created_at.timestamp():.0f}",
+        dropoff_x=10,
+        dropoff_y=10,
+        line1="1 Test St",
+        created_at=created_at,
+    )
+    session.add(pending)
+    return pending
+
+
+def test_backlog_reports_zero_and_no_oldest_age_when_nothing_is_waiting(
+    session: Session, client: TestClient
+) -> None:
+    response = client.get("/backlog")
+    assert response.status_code == 200
+    assert response.json() == {"ready_count": 0, "oldest_waiting_seconds": None}
+
+
+def test_backlog_counts_pending_dropoffs_and_ages_the_oldest(
+    session: Session, client: TestClient
+) -> None:
+    now = datetime.now(UTC)
+    _make_pending_dropoff(session, created_at=now - timedelta(minutes=15))
+    _make_pending_dropoff(session, created_at=now - timedelta(minutes=2))
+    session.commit()
+
+    response = client.get("/backlog")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ready_count"] == 2
+    # ~15 minutes old, generous bounds so a slow CI box can't flake this.
+    assert 14 * 60 < body["oldest_waiting_seconds"] < 16 * 60
+
+
+def test_backlog_excludes_an_order_that_already_has_a_trip(
+    session: Session, client: TestClient
+) -> None:
+    """A `pending_dropoff` row is only ever deleted on a successful
+    assignment (`dispatch.tasks.assign_order`) — this covers the defensive
+    `NOT EXISTS` join rather than relying solely on that invariant."""
+    courier = Courier(
+        name="Assigned Courier", status="assigned", vehicle="bike", speed_cells_per_min=20
+    )
+    session.add(courier)
+    session.flush()
+
+    pending = _make_pending_dropoff(session, created_at=datetime.now(UTC) - timedelta(minutes=30))
+    session.add(
+        Trip(
+            courier_id=courier.id,
+            order_id=pending.order_id,
+            code=pending.code,
+            status="assigned",
+            pickup_x=50,
+            pickup_y=50,
+            dropoff_x=10,
+            dropoff_y=10,
+            assigned_at=datetime.now(UTC),
+            eta_at=datetime.now(UTC) + timedelta(minutes=5),
+            distance_cells=40,
+        )
+    )
+    session.commit()
+
+    response = client.get("/backlog")
+    assert response.status_code == 200
+    assert response.json() == {"ready_count": 0, "oldest_waiting_seconds": None}

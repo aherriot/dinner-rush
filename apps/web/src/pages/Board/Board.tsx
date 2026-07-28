@@ -3,6 +3,7 @@ import { api } from "../../api/client";
 import { BoardAuthProvider } from "../../auth/BoardAuthContext";
 import { useBoardAuth } from "../../auth/useBoardAuth";
 import { Button } from "../../components/Button/Button";
+import { CourierQueue } from "../../components/CourierQueue/CourierQueue";
 import { DispatchPanel } from "../../components/DispatchPanel/DispatchPanel";
 import { KitchenPanel } from "../../components/KitchenPanel/KitchenPanel";
 import { OrderDrillIn } from "../../components/OrderDrillIn/OrderDrillIn";
@@ -20,13 +21,16 @@ import styles from "./Board.module.css";
 import {
   applyOrderEvent,
   lateRatioPercent,
+  mapBacklogSummary,
   mapCouriers,
+  mapCourierRoster,
   mapOvens,
   mapTripLines,
   ordersPerMinute,
   toOrderFeedRows,
   toTimelineEvent,
   type BoardOrder,
+  type DispatchBacklogRaw,
   type DispatchCourierRaw,
   type DispatchTripRaw,
   type KitchenOvenRaw,
@@ -139,6 +143,7 @@ interface BoardData {
   queue: KitchenTicketRaw[] | null;
   trips: DispatchTripRaw[] | null;
   couriers: DispatchCourierRaw[] | null;
+  backlog: DispatchBacklogRaw | null;
 }
 
 function BoardDashboard() {
@@ -166,6 +171,7 @@ function BoardDashboard() {
       queue: (snapshot.kitchen.queue as KitchenTicketRaw[] | null) ?? null,
       trips: (snapshot.dispatch.trips as DispatchTripRaw[] | null) ?? null,
       couriers: (snapshot.dispatch.couriers as DispatchCourierRaw[] | null) ?? null,
+      backlog: (snapshot.dispatch.backlog as DispatchBacklogRaw | null) ?? null,
     });
   }, []);
 
@@ -313,6 +319,13 @@ function BoardDashboard() {
             couriers={mapCouriers(data?.couriers ?? null)}
             trips={mapTripLines(data?.trips ?? null)}
             activeTripCount={data?.trips?.length}
+            state={data === null ? "loading" : data.couriers === null ? "error" : "idle"}
+            errorMessage="Dispatch is unreachable."
+          />
+          <CourierQueue
+            couriers={mapCourierRoster(data?.couriers ?? null, data?.trips ?? null)}
+            backlog={mapBacklogSummary(data?.backlog)}
+            now={now}
             state={data === null ? "loading" : data.couriers === null ? "error" : "idle"}
             errorMessage="Dispatch is unreachable."
           />

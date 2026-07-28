@@ -146,6 +146,11 @@ def test_order_rejected_at_capacity_when_kitchen_says_no(
     assert body["status"] == "rejected"
     assert body["rejection_reason"] == "at_capacity"
 
+    timeline = as_customer.get(f"/api/v1/orders/{body['code']}/timeline").json()
+    reject_event = next(event for event in timeline if event["to_status"] == "rejected")
+    assert reject_event["reason"] == "at_capacity"
+    assert reject_event["queue_depth"] == 41
+
 
 @pytest.mark.django_db
 def test_unavailable_item_short_circuits_before_calling_kitchen(

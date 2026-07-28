@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from dinner_rush_core.config import CourierSpeedConfig, DispatchConfig, GridConfig, RestaurantConfig
 from dispatch.assignment import attempt_assignment
 from dispatch.geo import set_position
-from dispatch.models import Courier
+from dispatch.models import Courier, Trip
 
 _CONFIG = DispatchConfig(
     grid=GridConfig(width=100, height=100),
@@ -25,6 +25,7 @@ _CONFIG = DispatchConfig(
     max_trips_per_courier=2,
     batch_max_detour_cells=8,
     assignment_retry_seconds=10,
+    max_assignment_retry_seconds=90,
     address_grant_ttl_seconds=3600,
     eta_recalc_interval_seconds=30,
 )
@@ -49,6 +50,41 @@ def _idle_courier(session: Session, redis_client: redis.Redis, *, x: int, y: int
     session.add(courier)
     session.flush()
     set_position(redis_client, str(courier.id), x, y)
+    return courier
+
+
+def _busy_courier_with_room(
+    session: Session, *, next_stop_x: int, next_stop_y: int
+) -> Courier:
+    """A courier already `assigned` with one active trip (below
+    `max_trips_per_courier=2`), whose active trip's dropoff is
+    `(next_stop_x, next_stop_y)` — that's what `_last_planned_stop` treats as
+    where it's headed next, i.e. the point a batched pickup would detour
+    from."""
+    courier = Courier(
+        name=f"Busy courier heading to ({next_stop_x},{next_stop_y})",
+        status="assigned",
+        vehicle="bike",
+        speed_cells_per_min=22,
+        shift_started_at=datetime.now(UTC),
+    )
+    session.add(courier)
+    session.flush()
+    trip = Trip(
+        courier_id=courier.id,
+        order_id=uuid.uuid4(),
+        code="0001",
+        status="assigned",
+        pickup_x=50,
+        pickup_y=50,
+        dropoff_x=next_stop_x,
+        dropoff_y=next_stop_y,
+        assigned_at=datetime.now(UTC),
+        eta_at=datetime.now(UTC),
+        distance_cells=0,
+    )
+    session.add(trip)
+    session.flush()
     return courier
 
 
@@ -92,6 +128,60 @@ def test_returns_none_when_no_courier_is_idle_or_in_range(
     )
 
     assert result is None
+
+
+def test_prefers_an_idle_courier_over_a_batchable_busy_one_even_with_a_smaller_detour(
+    session: Session, redis_client: redis.Redis
+) -> None:
+    """Product direction: "If a courier is closer, but busy, we should
+    dispatch someone further away who is idle." The busy courier here has a
+    trivially small detour (2 cells, well under `batch_max_detour_cells=8`)
+    while the idle courier is much farther away (20 cells) — the idle one
+    must still win."""
+    busy = _busy_courier_with_room(session, next_stop_x=52, next_stop_y=50)
+    idle = _idle_courier(session, redis_client, x=70, y=50)
+    session.commit()
+
+    result = attempt_assignment(
+        session,
+        redis_client,
+        order_id=uuid.uuid4(),
+        code="4474",
+        dropoff_x=60,
+        dropoff_y=40,
+        line1="1 Test Street",
+        config=_CONFIG,
+        speed=1,
+    )
+
+    assert result is not None
+    assert result.courier_id == idle.id
+    assert result.courier_id != busy.id
+
+
+def test_falls_back_to_batching_a_busy_courier_when_no_idle_courier_is_in_range(
+    session: Session, redis_client: redis.Redis
+) -> None:
+    """No idle courier at all (or none within `search_radius_cells`) — the
+    busy-but-has-room courier within `batch_max_detour_cells` must still be
+    used, exactly as before this priority inversion."""
+    busy = _busy_courier_with_room(session, next_stop_x=52, next_stop_y=50)
+    session.commit()
+
+    result = attempt_assignment(
+        session,
+        redis_client,
+        order_id=uuid.uuid4(),
+        code="4475",
+        dropoff_x=60,
+        dropoff_y=40,
+        line1="1 Test Street",
+        config=_CONFIG,
+        speed=1,
+    )
+
+    assert result is not None
+    assert result.courier_id == busy.id
 
 
 def test_assignment_creates_a_live_address_grant(

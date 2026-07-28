@@ -1,3 +1,4 @@
+import { rejectionReasonLabel } from "../../design/rejectionReasons";
 import type { OrderStatus } from "../../design/tokens";
 import { StatusPill } from "../StatusPill/StatusPill";
 import styles from "./OrderTimeline.module.css";
@@ -7,6 +8,11 @@ export interface TimelineEvent {
   from_status: OrderStatus | null;
   to_status: OrderStatus;
   occurred_at: string;
+  /** Only set on the `reject` event — why this order never got cooked. */
+  reason?: string | null;
+  /** Kitchen queue depth at the moment of the quote — only meaningful
+   * alongside `reason: "at_capacity"`; other reasons never call kitchen. */
+  queue_depth?: number | null;
 }
 
 export type OrderTimelineState = "idle" | "loading" | "empty" | "error";
@@ -64,7 +70,17 @@ export function OrderTimeline({ events = [], state = "idle", errorMessage }: Ord
       {events.map((item) => (
         <li key={`${item.event}-${item.occurred_at}`} className={styles.row}>
           <span className={styles.time}>{formatTime(item.occurred_at)}</span>
-          <StatusPill status={item.to_status} />
+          <div className={styles.detail}>
+            <StatusPill status={item.to_status} />
+            {item.to_status === "rejected" && item.reason && (
+              <p className={styles.reason}>
+                {rejectionReasonLabel(item.reason)}
+                {item.reason === "at_capacity" && item.queue_depth != null && (
+                  <> — queue depth {item.queue_depth}</>
+                )}
+              </p>
+            )}
+          </div>
         </li>
       ))}
     </ol>

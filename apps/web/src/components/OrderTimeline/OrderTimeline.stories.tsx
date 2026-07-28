@@ -59,19 +59,33 @@ const DELIVERED: TimelineEvent[] = [
   },
 ];
 
-const REJECTED: TimelineEvent[] = [
+const REJECTED_OUTSIDE_RANGE: TimelineEvent[] = [
   { event: "place", from_status: null, to_status: "placed", occurred_at: "2026-01-01T12:00:00Z" },
   {
     event: "reject",
     from_status: "placed",
     to_status: "rejected",
     occurred_at: "2026-01-01T12:00:01Z",
+    reason: "outside_range",
+  },
+];
+
+const REJECTED_AT_CAPACITY: TimelineEvent[] = [
+  { event: "place", from_status: null, to_status: "placed", occurred_at: "2026-01-01T12:00:00Z" },
+  {
+    event: "reject",
+    from_status: "placed",
+    to_status: "rejected",
+    occurred_at: "2026-01-01T12:00:01Z",
+    reason: "at_capacity",
+    queue_depth: 42,
   },
 ];
 
 export const InFlight: Story = { args: { events: IN_FLIGHT } };
 export const Delivered: Story = { args: { events: DELIVERED } };
-export const Rejected: Story = { args: { events: REJECTED } };
+export const Rejected: Story = { args: { events: REJECTED_OUTSIDE_RANGE } };
+export const RejectedAtCapacity: Story = { args: { events: REJECTED_AT_CAPACITY } };
 export const Loading: Story = { args: { state: "loading" } };
 export const Empty: Story = { args: { state: "empty" } };
 export const Error: Story = {

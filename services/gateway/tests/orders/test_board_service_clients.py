@@ -153,6 +153,26 @@ def test_get_couriers_returns_none_when_dispatch_is_unreachable() -> None:
     assert result is None
 
 
+def test_get_backlog_attaches_a_dispatch_read_scope() -> None:
+    fake = _FakeHTTP([_FakeResponse(200, {"ready_count": 4, "oldest_waiting_seconds": 512.0})])
+
+    result = dispatch_client.get_backlog(client=fake)
+
+    assert result == {"ready_count": 4, "oldest_waiting_seconds": 512.0}
+    [call] = fake.calls
+    payload = _decode(call["headers"]["Authorization"].removeprefix("Bearer "))
+    assert payload["scope"] == ["dispatch:read"]
+
+
+def test_get_backlog_returns_none_when_dispatch_is_unreachable() -> None:
+    cfg = dispatch_client.load_config().service_client
+    fake = _FakeHTTP([httpx.ConnectError("refused")] * cfg.retry_max_attempts)
+
+    result = dispatch_client.get_backlog(client=fake)
+
+    assert result is None
+
+
 def test_dispatch_breaker_is_independent_of_kitchens() -> None:
     """The two clients each own their own `lru_cache`d breaker instance —
     dispatch being down must not trip kitchen's circuit."""

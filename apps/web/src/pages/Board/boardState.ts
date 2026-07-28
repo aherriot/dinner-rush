@@ -1,3 +1,4 @@
+import type { BacklogSummary, CourierRosterEntry } from "../../components/CourierQueue/CourierQueue";
 import type { CourierMapEntry } from "../../components/DispatchPanel/DispatchPanel";
 import type { CourierStatus } from "../../components/CourierDot/CourierDot";
 import type { OvenViewModel } from "../../components/KitchenPanel/KitchenPanel";
@@ -53,6 +54,13 @@ export interface DispatchTripRaw {
   pickup_y: number;
   dropoff_x: number;
   dropoff_y: number;
+  assigned_at: string;
+  eta_at: string;
+}
+
+export interface DispatchBacklogRaw {
+  ready_count: number;
+  oldest_waiting_seconds: number | null;
 }
 
 /** Every order-status-affecting event type maps to exactly one FSM status
@@ -141,11 +149,15 @@ export function toTimelineEvent(event: BoardEnvelope, code: string): TimelineEve
   const status = ORDER_EVENT_STATUS[event.event_type];
   if (!status) return null;
   if (event.payload["code"] !== code) return null;
+  const reason = event.payload["reason"];
+  const queueDepth = event.payload["queue_depth"];
   return {
     event: event.event_type,
     from_status: null,
     to_status: status,
     occurred_at: event.occurred_at,
+    reason: typeof reason === "string" ? reason : null,
+    queue_depth: typeof queueDepth === "number" ? queueDepth : null,
   };
 }
 
@@ -239,4 +251,43 @@ export function mapTripLines(
     toX: trip.dropoff_x,
     toY: trip.dropoff_y,
   }));
+}
+
+/** Every courier (unlike `mapCouriers`, which drops anyone with no reported
+ * position — the roster has nothing to place on a map, so there's no reason
+ * to hide an idle courier here) paired with their trips, grouped in
+ * assignment order. Dispatch's `GET /trips` already sorts by `assigned_at`,
+ * so grouping by `courier_id` via a plain filter preserves that order
+ * without this function re-sorting anything itself. */
+export function mapCourierRoster(
+  couriers: DispatchCourierRaw[] | null,
+  trips: DispatchTripRaw[] | null,
+): CourierRosterEntry[] {
+  if (!couriers) return [];
+  const allTrips = trips ?? [];
+  return couriers.map((courier) => ({
+    id: courier.id,
+    name: courier.name,
+    status: COURIER_STATUS[courier.status] ?? "idle",
+    trips: allTrips
+      .filter((trip) => trip.courier_id === courier.id)
+      .map((trip) => ({
+        id: trip.id,
+        code: trip.code,
+        etaAtMs: new Date(trip.eta_at).getTime(),
+      })),
+  }));
+}
+
+/** `null` means dispatch didn't answer this field at all — kept distinct
+ * from a confirmed `{ready_count: 0, ...}` all the way through so the board
+ * never shows "no backlog" when it actually just couldn't ask. */
+export function mapBacklogSummary(
+  backlog: DispatchBacklogRaw | null | undefined,
+): BacklogSummary | null {
+  if (!backlog) return null;
+  return {
+    readyCount: backlog.ready_count,
+    oldestWaitingSeconds: backlog.oldest_waiting_seconds,
+  };
 }

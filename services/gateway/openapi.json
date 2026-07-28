@@ -647,16 +647,20 @@
             },
             "DispatchSnapshot": {
                 "type": "object",
-                "description": "Passthrough — same reasoning as `KitchenSnapshotSerializer`, for\ndispatch's `TripOut`/`CourierOut`.",
+                "description": "Passthrough — same reasoning as `KitchenSnapshotSerializer`, for\ndispatch's `TripOut`/`CourierOut`/`BacklogOut`.",
                 "properties": {
                     "trips": {
                         "nullable": true
                     },
                     "couriers": {
                         "nullable": true
+                    },
+                    "backlog": {
+                        "nullable": true
                     }
                 },
                 "required": [
+                    "backlog",
                     "couriers",
                     "trips"
                 ]
@@ -967,6 +971,26 @@
                         "type": "string",
                         "format": "date-time",
                         "readOnly": true
+                    },
+                    "reason": {
+                        "nullable": true,
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/RejectionReasonEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/NullEnum"
+                            }
+                        ]
+                    },
+                    "queue_depth": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0,
+                        "nullable": true
                     }
                 },
                 "required": [

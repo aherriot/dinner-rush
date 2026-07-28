@@ -27,12 +27,23 @@
 .dispatch {
   grid-area: dispatch;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
 }
 
 .order-feed > section,
-.kitchen > section,
-.dispatch > section {
+.kitchen > section {
   height: 100%;
+}
+
+/* The dispatch column stacks two panels — the map and the courier queue —
+   each taking half the column rather than the map's full height, since the
+   queue's backlog callout is at least as important to a "where's the
+   problem" glance as the spatial view (CLAUDE.md's board-is-the-thumbnail). */
+.dispatch > section {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .status-bar {

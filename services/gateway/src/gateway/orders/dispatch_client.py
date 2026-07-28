@@ -84,3 +84,42 @@ def get_couriers(
 ) -> list[dict[str, object]] | None:
     """`GET /couriers` — status + last-known position (SPEC.md §3.4)."""
     return _get("/couriers", correlation_id=correlation_id, client=client)
+
+
+def get_backlog(
+    *, correlation_id: str | None = None, client: httpx.Client | None = None
+) -> dict[str, object] | None:
+    """`GET /backlog` — `ready_count`/`oldest_waiting_seconds` for orders
+    dispatch hasn't matched to a courier yet. A single object, not a list
+    (unlike `get_trips`/`get_couriers`), so it doesn't share `_get`'s
+    list-typed return; same degrade-not-fail contract otherwise — `None`
+    means dispatch didn't answer."""
+    cfg = load_config().service_client
+    token = mint_service_token(scope=["dispatch:read"], correlation_id=correlation_id)
+    http = client if client is not None else httpx
+
+    def _request() -> httpx.Response:
+        response = http.get(
+            f"{DISPATCH_BASE_URL}/backlog",
+            timeout=cfg.timeout_seconds,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        response.raise_for_status()
+        return response
+
+    try:
+        response = _get_breaker().call(
+            lambda: retry_with_jitter(
+                _request,
+                max_attempts=cfg.retry_max_attempts,
+                base_delay_seconds=cfg.retry_base_delay_seconds,
+                max_delay_seconds=cfg.retry_max_delay_seconds,
+                retry_on=_TRANSIENT_ERRORS,
+            ),
+            retry_on=_TRANSIENT_ERRORS,
+        )
+    except (httpx.HTTPError, CircuitBreakerOpenError):
+        return None
+
+    body: dict[str, object] = response.json()
+    return body

@@ -23,12 +23,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from dinner_rush_core.auth import Claims
-from dispatch.api_models import DropoffOut, TripFailRequest, TripOut
+from dispatch.api_models import BacklogOut, DropoffOut, TripFailRequest, TripOut
 from dispatch.auth import require_courier, require_service_scope
 from dispatch.db import get_session
 from dispatch.fsm import IllegalTransition, apply_transition
 from dispatch.geo import set_position
-from dispatch.models import AddressGrant, Courier, Trip
+from dispatch.models import AddressGrant, Courier, PendingDropoff, Trip
 from dispatch.redis_client import get_redis_client
 from dispatch.writer import build_envelope, write_outbox_event
 
@@ -54,6 +54,35 @@ def _own_trip_or_403(trip: Trip, claims: Claims) -> None:
 def list_trips(session: Session = Depends(get_session)) -> list[Trip]:
     stmt = select(Trip).where(Trip.status.in_(_ACTIVE_TRIP_STATUSES)).order_by(Trip.assigned_at)
     return list(session.execute(stmt).scalars().all())
+
+
+@board_router.get("/backlog", response_model=BacklogOut)
+def get_backlog(session: Session = Depends(get_session)) -> BacklogOut:
+    """Orders `dispatch.tasks.assign_order` hasn't matched to a courier yet:
+    a `pending_dropoff` row (written when `order.ready` arrives, ADR 0007 §1)
+    that outlives assignment means the retry loop keeps failing to find one —
+    the row is only ever deleted on a successful `attempt_assignment`
+    (`dispatch.tasks.assign_order`). The `NOT EXISTS` against `trip` is
+    belt-and-suspenders for that invariant rather than the primary signal:
+    every surviving `pending_dropoff` row already implies no trip exists for
+    its `order_id`."""
+    no_trip_yet = ~select(Trip.id).where(Trip.order_id == PendingDropoff.order_id).exists()
+    stmt = select(func.count(), func.min(PendingDropoff.created_at)).where(no_trip_yet)
+    ready_count, oldest_created_at = session.execute(stmt).one()
+
+    oldest_waiting_seconds = None
+    if oldest_created_at is not None:
+        oldest_waiting_seconds = (datetime.now(UTC) - _as_utc(oldest_created_at)).total_seconds()
+
+    return BacklogOut(ready_count=ready_count, oldest_waiting_seconds=oldest_waiting_seconds)
+
+
+def _as_utc(value: datetime) -> datetime:
+    """`pending_dropoff.created_at` is a naive-on-disk "timestamp without
+    time zone" column this codebase only ever writes `datetime.now(UTC)`
+    into — naive-but-really-UTC once round-tripped through Postgres (same
+    reasoning as `kitchen.reconcile._as_utc`)."""
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
 @courier_router.get("/trips/{trip_id}/dropoff", response_model=DropoffOut)
