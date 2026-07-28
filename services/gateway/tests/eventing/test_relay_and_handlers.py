@@ -17,7 +17,7 @@ from dinner_rush_core.streams import (
     publish,
     read_batch,
 )
-from gateway.eventing.handlers import handle_analytics, handle_ws_fanout
+from gateway.eventing.handlers import handle_analytics, handle_board_fanout, handle_ws_fanout
 from gateway.eventing.models import EventTypeCounter, Outbox, ProcessedEvent
 from gateway.eventing.redis_client import get_redis_client
 from gateway.eventing.writer import build_envelope, write_outbox_event
@@ -163,12 +163,19 @@ def test_a_message_left_unacked_by_a_crashed_consumer_is_reclaimed_and_processed
 def test_handle_ws_fanout_pushes_to_the_orders_channel_group() -> None:
     envelope = _envelope()
     channel_layer = get_channel_layer()
+    # A fresh, random channel name per test — `channels_redis` groups persist
+    # in real Redis for `group_expiry` (default 24h), so a hardcoded literal
+    # like "test-channel" stays a member of every group any test ever added
+    # it to and silently accumulates other tests' undelivered messages in its
+    # queue, which a later `receive()` on the same literal then pops instead
+    # of its own fresh send. Only a unique-per-test channel name is immune.
+    test_channel = async_to_sync(channel_layer.new_channel)()
     group_name = f"order.{envelope.aggregate_id}"
-    async_to_sync(channel_layer.group_add)(group_name, "test-channel")
+    async_to_sync(channel_layer.group_add)(group_name, test_channel)
 
     handle_ws_fanout(StreamMessage(message_id="1700000000000-0", envelope=envelope))
 
-    message = async_to_sync(channel_layer.receive)("test-channel")
+    message = async_to_sync(channel_layer.receive)(test_channel)
     assert message["type"] == "order.event"
     assert message["envelope"]["event_id"] == str(envelope.event_id)
 
@@ -183,11 +190,51 @@ def test_handle_ws_fanout_sends_the_real_stream_id_not_the_envelopes_event_id() 
     half of this regression)."""
     envelope = _envelope()
     channel_layer = get_channel_layer()
+    test_channel = async_to_sync(channel_layer.new_channel)()
     group_name = f"order.{envelope.aggregate_id}"
-    async_to_sync(channel_layer.group_add)(group_name, "test-channel")
+    async_to_sync(channel_layer.group_add)(group_name, test_channel)
 
     handle_ws_fanout(StreamMessage(message_id="1700000000000-0", envelope=envelope))
 
-    message = async_to_sync(channel_layer.receive)("test-channel")
+    message = async_to_sync(channel_layer.receive)(test_channel)
     assert message["stream_id"] == "1700000000000-0"
     assert message["stream_id"] != str(envelope.event_id)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_handle_board_fanout_pushes_to_the_fixed_board_group() -> None:
+    """Unlike `handle_ws_fanout`'s per-order group, there's one board, so
+    every event lands in the same fixed `"board"` group regardless of
+    aggregate id."""
+    envelope = _envelope()
+    channel_layer = get_channel_layer()
+    test_channel = async_to_sync(channel_layer.new_channel)()
+    async_to_sync(channel_layer.group_add)("board", test_channel)
+
+    handle_board_fanout(StreamMessage(message_id="1700000000000-0", envelope=envelope))
+
+    message = async_to_sync(channel_layer.receive)(test_channel)
+    assert message["type"] == "board.event"
+    assert message["envelope"]["event_id"] == str(envelope.event_id)
+    assert message["stream_id"] == "1700000000000-0"
+    assert message["stream"] == "events:order"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_handle_board_fanout_derives_the_stream_from_the_event_type() -> None:
+    oven_envelope = build_envelope(
+        event_type="oven.down",
+        aggregate_type="oven",
+        aggregate_id=uuid.uuid4(),
+        sequence=1,
+        correlation_id=uuid.uuid4(),
+        payload={"oven_id": str(uuid.uuid4()), "slot_count": 4},
+    )
+    channel_layer = get_channel_layer()
+    test_channel = async_to_sync(channel_layer.new_channel)()
+    async_to_sync(channel_layer.group_add)("board", test_channel)
+
+    handle_board_fanout(StreamMessage(message_id="1700000000000-1", envelope=oven_envelope))
+
+    message = async_to_sync(channel_layer.receive)(test_channel)
+    assert message["stream"] == "events:oven"

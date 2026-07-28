@@ -19,6 +19,7 @@ from simulator.client.api import GatewayClient, GatewayError
 from simulator.client.models import MenuItem, OrderItemRequest
 from simulator.config import CustomersConfig
 from simulator.population import customer_email
+from simulator.scenario_overrides import ScenarioOverrideTracker
 from simulator.speed import SpeedTracker
 from simulator.stats import Stats
 
@@ -39,6 +40,7 @@ class Simulation:
         speed: SpeedTracker,
         stats: Stats,
         *,
+        scenario_overrides: ScenarioOverrideTracker | None = None,
         rng: random.Random | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
@@ -46,6 +48,7 @@ class Simulation:
         self._config = config
         self._speed = speed
         self._stats = stats
+        self._scenario_overrides = scenario_overrides
         self._rng = rng or random.Random()
         self._sleep = sleep
 
@@ -131,6 +134,8 @@ class Simulation:
         if not self._menu:
             return []
         weights = self._config.basket_size_weights
+        if self._scenario_overrides is not None:
+            weights = self._scenario_overrides.current_basket_size_weights(weights)
         [size] = self._rng.choices(list(weights.keys()), weights=list(weights.values()), k=1)
         chosen = self._rng.choices(self._menu, k=size)
         return [OrderItemRequest(sku=item.sku, qty=1) for item in chosen]

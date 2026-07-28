@@ -17,6 +17,14 @@ class IsManager(BasePermission):
         return get_actor(request).role == "manager"
 
 
+class IsKitchenOrManager(BasePermission):
+    """SPEC.md §3.1 — `GET /board/snapshot` and `WS /ws/board` are
+    "kitchen / manager", unlike the admin surface's manager-only `IsManager`."""
+
+    def has_permission(self, request: Request, view: APIView) -> bool:
+        return get_actor(request).role in {"kitchen", "manager"}
+
+
 class IsOwnOrderOrManager(BasePermission):
     """SPEC.md §6.1 — a customer sees only their own order; a manager sees any."""
 

@@ -4,7 +4,7 @@ import uuid
 import pytest
 
 from simulator.client.api import GatewayError, OrderResult
-from simulator.client.models import Address, Customer, MenuItem, Order, StatusEnum
+from simulator.client.models import Address, Customer, MenuItem, Order, OrderStatusEnum
 from simulator.config import CustomersConfig, ThinkTimeConfig
 from simulator.session import Simulation
 from simulator.speed import SpeedTracker
@@ -16,7 +16,7 @@ class _FakeClient:
         self.authenticate_calls: list[str] = []
         self.get_me_calls: list[str] = []
         self.create_order_calls: list[str] = []
-        self.order_status: StatusEnum = StatusEnum.accepted
+        self.order_status: OrderStatusEnum = OrderStatusEnum.accepted
         self.auth_error = False
         self.order_error = False
 
@@ -62,7 +62,7 @@ class _FakeClient:
         if self.order_error:
             raise GatewayError(422, "bad request")
         return OrderResult(
-            status_code=201 if self.order_status == StatusEnum.accepted else 202,
+            status_code=201 if self.order_status == OrderStatusEnum.accepted else 202,
             order=Order(
                 id=uuid.uuid4(),
                 code="4400",
@@ -125,7 +125,7 @@ async def test_a_successful_arrival_places_an_order_and_counts_it() -> None:
 
 async def test_a_rejected_order_is_counted_as_rejected_not_an_error() -> None:
     client = _FakeClient()
-    client.order_status = StatusEnum.rejected
+    client.order_status = OrderStatusEnum.rejected
     sim, stats = _simulation(client, _config())
     await sim.load_menu()
 

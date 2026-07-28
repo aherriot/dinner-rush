@@ -17,7 +17,8 @@ seed: ## menu, customers, staff, ovens, stations and couriers from config.yaml
 	docker compose exec dispatch python -m dispatch.cli seed
 
 demo: up seed ## up + seed + open the board — the one-command entry point
-	@echo "make demo: board UI lands in Phase 8 — see PHASES.md"
+	@echo "make demo: stack is up and seeded — run 'cd apps/web && pnpm dev' and open http://localhost:5173/board"
+	@echo "sign in as manager/manager or kitchen/kitchen"
 
 sim: ## start the simulator at baseline rate — runs until Ctrl-C / `docker compose stop`
 	docker compose --profile simulator run --rm simulator python -m simulator.cli

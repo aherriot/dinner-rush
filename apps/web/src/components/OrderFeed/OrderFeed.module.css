@@ -1,0 +1,6 @@
+.code {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-size);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}

@@ -62,6 +62,134 @@
                 }
             }
         },
+        "/api/v1/admin/ovens/{oven_id}/status": {
+            "post": {
+                "operationId": "v1_admin_ovens_status_create",
+                "description": "`POST /admin/ovens/{id}/status` (SPEC.md §3.2) — manager only. Proxies\nto kitchen's write endpoint via a minted service token; the oven-down\nchaos button's write path.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "oven_id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "v1"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OvenStatus"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OvenStatus"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OvenStatus"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OvenStatus"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/scenarios/{name}/start": {
+            "post": {
+                "operationId": "v1_admin_scenarios_start_create",
+                "description": "`POST /admin/scenarios/{name}/start` (SPEC.md §3.2) — manager only.\n\nOverride-driven scenarios (`friday_rush`, `courier_offline`) write their\nparameter deltas to Redis with a wall-clock TTL for the simulator to\npoll (`GET /scenarios/active`). Action-driven scenarios (`oven_down`,\n`ingredient_shortage`) instead execute their `at_seconds: 0` actions\nimmediately — the revert actions run on `.../stop`. `dispatch_down` has\nno `overrides`/`actions` in config at all (it's `manual:`) and is\nrejected here on purpose; it stays a `docker compose stop dispatch` demo\nstep, not a button.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "name",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "v1"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ScenarioToggle"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/scenarios/{name}/stop": {
+            "post": {
+                "operationId": "v1_admin_scenarios_stop_create",
+                "description": "`POST /admin/scenarios/{name}/stop` (SPEC.md §3.2) — manager only.\nClears any Redis override early and runs the scenario's revert actions\n(the `at_seconds > 0` entries) immediately rather than waiting out\n`duration_seconds`.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "name",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "v1"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ScenarioToggle"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/admin/speed": {
             "post": {
                 "operationId": "v1_admin_speed_create",
@@ -140,6 +268,32 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/TokenResponse"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/board/snapshot": {
+            "get": {
+                "operationId": "v1_board_snapshot_retrieve",
+                "description": "`GET /board/snapshot` — kitchen/manager only. Kitchen/dispatch\nsections are `None` when that service didn't answer: a degraded panel,\nnot a failed request — the same \"keep gateway working when a peer\nisn't\" story as order acceptance's capacity-quote fallback, and the\nwhole point of Streams over pub/sub for Phase 10's recovery demo.",
+                "tags": [
+                    "v1"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BoardSnapshot"
                                 }
                             }
                         },
@@ -344,6 +498,27 @@
                 }
             }
         },
+        "/api/v1/scenarios/active": {
+            "get": {
+                "operationId": "v1_scenarios_active_retrieve",
+                "description": "`GET /scenarios/active` — public, unauthenticated, mirrors\n`accounts.views.SpeedView`: the simulator has no service credentials and\nno privileged scope (CLAUDE.md §5), so a public poll is the only channel\nit has to learn which overrides currently apply.",
+                "tags": [
+                    "v1"
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ScenariosActive"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/speed": {
             "get": {
                 "operationId": "v1_speed_retrieve",
@@ -411,6 +586,29 @@
                     ""
                 ]
             },
+            "BoardSnapshot": {
+                "type": "object",
+                "description": "`GET /board/snapshot` (SPEC.md §3.1) — the board's cold-load state.",
+                "properties": {
+                    "orders": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Order"
+                        }
+                    },
+                    "kitchen": {
+                        "$ref": "#/components/schemas/KitchenSnapshot"
+                    },
+                    "dispatch": {
+                        "$ref": "#/components/schemas/DispatchSnapshot"
+                    }
+                },
+                "required": [
+                    "dispatch",
+                    "kitchen",
+                    "orders"
+                ]
+            },
             "Customer": {
                 "type": "object",
                 "properties": {
@@ -445,6 +643,38 @@
                     "email",
                     "id",
                     "name"
+                ]
+            },
+            "DispatchSnapshot": {
+                "type": "object",
+                "description": "Passthrough — same reasoning as `KitchenSnapshotSerializer`, for\ndispatch's `TripOut`/`CourierOut`.",
+                "properties": {
+                    "trips": {
+                        "nullable": true
+                    },
+                    "couriers": {
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "couriers",
+                    "trips"
+                ]
+            },
+            "KitchenSnapshot": {
+                "type": "object",
+                "description": "Passthrough — kitchen's own `TicketOut`/`OvenOut` (FastAPI/Pydantic)\nare already the wire shape the board wants; gateway doesn't re-model\nthem. `None` means kitchen didn't answer (`kitchen_client.get_queue`/\n`get_ovens`'s degrade-not-fail contract), not an empty result.",
+                "properties": {
+                    "queue": {
+                        "nullable": true
+                    },
+                    "ovens": {
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "ovens",
+                    "queue"
                 ]
             },
             "MenuAvailability": {
@@ -536,7 +766,7 @@
                         "maxLength": 20
                     },
                     "status": {
-                        "$ref": "#/components/schemas/StatusEnum"
+                        "$ref": "#/components/schemas/OrderStatusEnum"
                     },
                     "subtotal_cents": {
                         "type": "integer",
@@ -698,6 +928,25 @@
                     "sku"
                 ]
             },
+            "OrderStatusEnum": {
+                "enum": [
+                    "accepted",
+                    "assigned",
+                    "baking",
+                    "boxed",
+                    "delivered",
+                    "delivering",
+                    "failed",
+                    "picked_up",
+                    "placed",
+                    "prepping",
+                    "queued",
+                    "ready",
+                    "rejected"
+                ],
+                "type": "string",
+                "description": "* `accepted` - accepted\n* `assigned` - assigned\n* `baking` - baking\n* `boxed` - boxed\n* `delivered` - delivered\n* `delivering` - delivering\n* `failed` - failed\n* `picked_up` - picked_up\n* `placed` - placed\n* `prepping` - prepping\n* `queued` - queued\n* `ready` - ready\n* `rejected` - rejected"
+            },
             "OrderStatusEvent": {
                 "type": "object",
                 "properties": {
@@ -726,6 +975,25 @@
                     "to_status"
                 ]
             },
+            "OvenStatus": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "$ref": "#/components/schemas/OvenStatusStatusEnum"
+                    }
+                },
+                "required": [
+                    "status"
+                ]
+            },
+            "OvenStatusStatusEnum": {
+                "enum": [
+                    "available",
+                    "down"
+                ],
+                "type": "string",
+                "description": "* `available` - available\n* `down` - down"
+            },
             "RejectionReasonEnum": {
                 "enum": [
                     "at_capacity",
@@ -734,6 +1002,41 @@
                 ],
                 "type": "string",
                 "description": "* `at_capacity` - at_capacity\n* `item_unavailable` - item_unavailable\n* `outside_range` - outside_range"
+            },
+            "ScenarioToggle": {
+                "type": "object",
+                "properties": {
+                    "scenario": {
+                        "type": "string"
+                    },
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "overrides": {},
+                    "actions_applied": {}
+                },
+                "required": [
+                    "actions_applied",
+                    "active",
+                    "overrides",
+                    "scenario"
+                ]
+            },
+            "ScenariosActive": {
+                "type": "object",
+                "properties": {
+                    "overrides": {},
+                    "scenarios": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "overrides",
+                    "scenarios"
+                ]
             },
             "Speed": {
                 "type": "object",
@@ -753,25 +1056,6 @@
                 ],
                 "type": "string",
                 "description": "* `prep` - prep\n* `assembly` - assembly"
-            },
-            "StatusEnum": {
-                "enum": [
-                    "accepted",
-                    "assigned",
-                    "baking",
-                    "boxed",
-                    "delivered",
-                    "delivering",
-                    "failed",
-                    "picked_up",
-                    "placed",
-                    "prepping",
-                    "queued",
-                    "ready",
-                    "rejected"
-                ],
-                "type": "string",
-                "description": "* `accepted` - accepted\n* `assigned` - assigned\n* `baking` - baking\n* `boxed` - boxed\n* `delivered` - delivered\n* `delivering` - delivering\n* `failed` - failed\n* `picked_up` - picked_up\n* `placed` - placed\n* `prepping` - prepping\n* `queued` - queued\n* `ready` - ready\n* `rejected` - rejected"
             },
             "TokenRequest": {
                 "type": "object",

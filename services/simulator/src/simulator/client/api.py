@@ -19,6 +19,7 @@ from simulator.client.models import (
     Order,
     OrderCreateRequest,
     OrderItemRequest,
+    ScenariosActive,
     Speed,
     TokenRequest,
     TokenResponse,
@@ -90,6 +91,15 @@ class GatewayClient:
         response = await self._http.get("/speed")
         _raise_for_gateway_error(response)
         return Speed.model_validate(response.json()).speed
+
+    async def get_active_scenario_overrides(self) -> dict[str, object]:
+        """`GET /scenarios/active` (SPEC.md §3.2) — public, unauthenticated,
+        same reasoning as `get_speed`: this is an ordinary API client with no
+        service credentials to read gateway's Redis directly (CLAUDE.md §5)."""
+        response = await self._http.get("/scenarios/active")
+        _raise_for_gateway_error(response)
+        overrides = ScenariosActive.model_validate(response.json()).overrides
+        return overrides if isinstance(overrides, dict) else {}
 
     async def get_me(self, token: str) -> Customer:
         response = await self._http.get("/me", headers=_bearer(token))

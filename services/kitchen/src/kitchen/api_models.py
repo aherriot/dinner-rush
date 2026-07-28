@@ -60,3 +60,7 @@ class OvenOut(BaseModel):
 
 class TicketAdvanceRequest(BaseModel):
     event: str
+
+
+class OvenStatusUpdateRequest(BaseModel):
+    status: str

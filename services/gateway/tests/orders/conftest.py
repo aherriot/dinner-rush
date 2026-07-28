@@ -20,6 +20,13 @@ def manager_token() -> str:
     return str(refresh.access_token)
 
 
+def kitchen_token() -> str:
+    refresh = RefreshToken()
+    refresh["role"] = "kitchen"
+    refresh["staff_id"] = "test-kitchen-staff"
+    return str(refresh.access_token)
+
+
 @pytest.fixture
 def api_client() -> APIClient:
     return APIClient()
@@ -61,4 +68,11 @@ def as_customer(customer_with_address: tuple[Customer, Address]) -> APIClient:
 def as_manager() -> APIClient:
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {manager_token()}")
+    return client
+
+
+@pytest.fixture
+def as_kitchen() -> APIClient:
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {kitchen_token()}")
     return client

@@ -1,0 +1,21 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gutter);
+  height: 100%;
+}
+
+.map {
+  position: relative;
+  flex: 1;
+  min-height: 240px;
+  background: var(--bg-inset);
+  border: var(--border-subtle) 1px solid;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}

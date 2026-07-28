@@ -11,6 +11,7 @@ x-gateway-env: &gateway-env
   POSTGRES_PASSWORD: gateway
   REDIS_URL: redis://redis:6379/0
   KITCHEN_BASE_URL: http://kitchen:8001
+  DISPATCH_BASE_URL: http://dispatch:8002
   DJANGO_DEBUG: "true"
   DJANGO_ALLOWED_HOSTS: "*"
   CONFIG_PATH: /app/config.yaml
@@ -227,6 +228,63 @@ services:
         "stream_consumer",
         "--group",
         "cg:order-sync",
+        "--stream",
+        "events:courier",
+      ]
+    environment: *gateway-env
+    volumes: *gateway-volumes
+    depends_on: *gateway-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
+  # The board's fanout (Phase 8) merges all three fixed streams into one
+  # Channels group ("board") — same "one process per stream, same group
+  # name" split as `consumer-order-sync`/`-courier` above, times three.
+  consumer-ws-board-fanout-order:
+    <<: *gateway-image
+    command:
+      [
+        "python",
+        "manage.py",
+        "stream_consumer",
+        "--group",
+        "cg:ws-board-fanout",
+        "--stream",
+        "events:order",
+      ]
+    environment: *gateway-env
+    volumes: *gateway-volumes
+    depends_on: *gateway-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
+  consumer-ws-board-fanout-oven:
+    <<: *gateway-image
+    command:
+      [
+        "python",
+        "manage.py",
+        "stream_consumer",
+        "--group",
+        "cg:ws-board-fanout",
+        "--stream",
+        "events:oven",
+      ]
+    environment: *gateway-env
+    volumes: *gateway-volumes
+    depends_on: *gateway-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
+  consumer-ws-board-fanout-courier:
+    <<: *gateway-image
+    command:
+      [
+        "python",
+        "manage.py",
+        "stream_consumer",
+        "--group",
+        "cg:ws-board-fanout",
         "--stream",
         "events:courier",
       ]

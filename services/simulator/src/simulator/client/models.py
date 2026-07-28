@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from enum import Enum, StrEnum
+from typing import Any
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, EmailStr, Field, conint, constr
@@ -30,6 +31,28 @@ class Customer(BaseModel):
     addresses: list[Address]
 
 
+class DispatchSnapshot(BaseModel):
+    """
+    Passthrough — same reasoning as `KitchenSnapshotSerializer`, for
+    dispatch's `TripOut`/`CourierOut`.
+    """
+
+    trips: Any
+    couriers: Any
+
+
+class KitchenSnapshot(BaseModel):
+    """
+    Passthrough — kitchen's own `TicketOut`/`OvenOut` (FastAPI/Pydantic)
+    are already the wire shape the board wants; gateway doesn't re-model
+    them. `None` means kitchen didn't answer (`kitchen_client.get_queue`/
+    `get_ovens`'s degrade-not-fail contract), not an empty result.
+    """
+
+    queue: Any
+    ovens: Any
+
+
 class MenuAvailability(BaseModel):
     available: bool
 
@@ -53,40 +76,7 @@ class OrderItemRequest(BaseModel):
     qty: conint(ge=1)
 
 
-class OrderStatusEvent(BaseModel):
-    from_status: constr(max_length=20) | None = None
-    to_status: constr(max_length=20)
-    event: constr(max_length=20)
-    occurred_at: AwareDatetime
-
-
-class RejectionReasonEnum(StrEnum):
-    """
-    * `at_capacity` - at_capacity
-    * `item_unavailable` - item_unavailable
-    * `outside_range` - outside_range
-    """
-
-    at_capacity = 'at_capacity'
-    item_unavailable = 'item_unavailable'
-    outside_range = 'outside_range'
-
-
-class Speed(BaseModel):
-    speed: int
-
-
-class StationEnum(StrEnum):
-    """
-    * `prep` - prep
-    * `assembly` - assembly
-    """
-
-    prep = 'prep'
-    assembly = 'assembly'
-
-
-class StatusEnum(StrEnum):
+class OrderStatusEnum(StrEnum):
     """
     * `accepted` - accepted
     * `assigned` - assigned
@@ -116,6 +106,61 @@ class StatusEnum(StrEnum):
     queued = 'queued'
     ready = 'ready'
     rejected = 'rejected'
+
+
+class OrderStatusEvent(BaseModel):
+    from_status: constr(max_length=20) | None = None
+    to_status: constr(max_length=20)
+    event: constr(max_length=20)
+    occurred_at: AwareDatetime
+
+
+class OvenStatusStatusEnum(StrEnum):
+    """
+    * `available` - available
+    * `down` - down
+    """
+
+    available = 'available'
+    down = 'down'
+
+
+class RejectionReasonEnum(StrEnum):
+    """
+    * `at_capacity` - at_capacity
+    * `item_unavailable` - item_unavailable
+    * `outside_range` - outside_range
+    """
+
+    at_capacity = 'at_capacity'
+    item_unavailable = 'item_unavailable'
+    outside_range = 'outside_range'
+
+
+class ScenarioToggle(BaseModel):
+    scenario: str
+    active: bool
+    overrides: Any
+    actions_applied: Any
+
+
+class ScenariosActive(BaseModel):
+    overrides: Any
+    scenarios: list[str]
+
+
+class Speed(BaseModel):
+    speed: int
+
+
+class StationEnum(StrEnum):
+    """
+    * `prep` - prep
+    * `assembly` - assembly
+    """
+
+    prep = 'prep'
+    assembly = 'assembly'
 
 
 class TokenRequest(BaseModel):
@@ -152,7 +197,7 @@ class MenuItem(BaseModel):
 class Order(BaseModel):
     id: UUID
     code: constr(max_length=20)
-    status: StatusEnum | None = None
+    status: OrderStatusEnum | None = None
     subtotal_cents: conint(ge=0, le=2147483647)
     delivery_fee_cents: conint(ge=0, le=2147483647)
     total_cents: conint(ge=0, le=2147483647)
@@ -172,3 +217,17 @@ class Order(BaseModel):
 class OrderCreateRequest(BaseModel):
     address_id: UUID
     items: list[OrderItemRequest]
+
+
+class OvenStatus(BaseModel):
+    status: OvenStatusStatusEnum
+
+
+class BoardSnapshot(BaseModel):
+    """
+    `GET /board/snapshot` (SPEC.md §3.1) — the board's cold-load state.
+    """
+
+    orders: list[Order]
+    kitchen: KitchenSnapshot
+    dispatch: DispatchSnapshot

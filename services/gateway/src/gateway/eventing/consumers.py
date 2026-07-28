@@ -91,6 +91,83 @@ class OrderTrackerConsumer(AsyncJsonWebsocketConsumer):
                 )
 
 
+#: Query param -> the physical stream it replays (SPEC.md §4's fixed three).
+#: A board client tracks a position per stream, unlike `OrderTrackerConsumer`
+#: which only ever replays one.
+BOARD_STREAMS_BY_QUERY_PARAM = {
+    "last_event_id_order": "events:order",
+    "last_event_id_oven": "events:oven",
+    "last_event_id_courier": "events:courier",
+}
+BOARD_VALID_ROLES = {"kitchen", "manager"}
+
+
+class BoardConsumer(AsyncJsonWebsocketConsumer):
+    """`WS /ws/board` (SPEC.md §3.1) — kitchen/manager only. Unlike
+    `OrderTrackerConsumer` there is no single order to own, so there's no
+    per-object authorization check, only the role gate. Fed by three
+    `stream_consumer` processes sharing the `cg:ws-board-fanout` group name,
+    one per stream (`handlers.handle_board_fanout`, compose.yaml) — a Redis
+    consumer group is scoped to a single stream, the same reason
+    `cg:order-sync` already runs as two processes for `events:order` and
+    `events:courier`.
+    """
+
+    async def connect(self) -> None:
+        query = parse_qs(self.scope["query_string"].decode())
+        token = query.get("token", [None])[0]
+
+        actor = _authenticate(token)
+        if actor is None:
+            await self.close(code=4401)
+            return
+        if actor["role"] not in BOARD_VALID_ROLES:
+            await self.close(code=4403)
+            return
+
+        self.group_name = "board"
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+        for param, stream in BOARD_STREAMS_BY_QUERY_PARAM.items():
+            last_event_id = query.get(param, [None])[0]
+            if last_event_id:
+                await self._replay(stream, last_event_id)
+
+    async def disconnect(self, _code: int) -> None:
+        group_name = getattr(self, "group_name", None)
+        if group_name:
+            await self.channel_layer.group_discard(group_name, self.channel_name)
+
+    async def board_event(self, message: dict[str, Any]) -> None:
+        """Dispatched for `{"type": "board.event", ...}` group_sends."""
+        await self.send_json(
+            {
+                **message["envelope"],
+                "stream_id": message["stream_id"],
+                "stream": message["stream"],
+            }
+        )
+
+    async def _replay(self, stream: str, last_event_id: str) -> None:
+        client = get_redis_client()
+        try:
+            messages = await sync_to_async(read_range)(client, stream, last_event_id)
+        except ResponseError:
+            # Same reasoning as `OrderTrackerConsumer._replay`: client-
+            # controlled input, so a malformed/stale id skips the replay
+            # rather than taking the connection down.
+            return
+        for message in messages:
+            await self.send_json(
+                {
+                    **message.envelope.model_dump(mode="json"),
+                    "stream_id": message.message_id,
+                    "stream": stream,
+                }
+            )
+
+
 def _authenticate(token: str | None) -> dict[str, str | None] | None:
     if not token:
         return None

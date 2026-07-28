@@ -15,6 +15,7 @@ urlpatterns = [
     path("api/v1/", include("gateway.accounts.urls")),
     path("api/v1/", include("gateway.catalog.urls")),
     path("api/v1/", include("gateway.orders.urls")),
+    path("api/v1/", include("gateway.board.urls")),
 ]
 
 if settings.DEBUG:

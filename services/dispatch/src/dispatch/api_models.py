@@ -13,6 +13,12 @@ class CourierOut(BaseModel):
     vehicle: str
     speed_cells_per_min: float
     shift_started_at: datetime | None
+    #: Last-reported Redis GEO position (`dispatch.geo`) — `None` until a
+    #: courier has ever reported one. Not a mapped column: assembled by the
+    #: board_router at read time, same "Redis caches, Postgres decides" split
+    #: as oven state in kitchen's `OvenOut`.
+    x: int | None = None
+    y: int | None = None
 
     model_config = {"from_attributes": True}
 

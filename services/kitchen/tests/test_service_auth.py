@@ -1,4 +1,5 @@
 import time
+import uuid
 from collections.abc import Iterator
 
 import jwt
@@ -99,3 +100,39 @@ def test_queue_403s_for_a_capacity_only_scope(client: TestClient) -> None:
 def test_healthz_needs_no_token(client: TestClient) -> None:
     response = client.get("/healthz")
     assert response.status_code == 200
+
+
+def test_oven_status_403s_without_the_kitchen_advance_scope(client: TestClient) -> None:
+    token = _token(_signing_key(client), sub="gateway", role="service", scope=["kitchen:read"])
+
+    response = client.post(
+        f"/ovens/{uuid.uuid4()}/status",
+        json={"status": "down"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 403
+
+
+def test_oven_status_403s_for_a_non_service_role(client: TestClient) -> None:
+    token = _token(
+        _signing_key(client), sub="manager-1", role="manager", scope=["kitchen:advance"]
+    )
+
+    response = client.post(
+        f"/ovens/{uuid.uuid4()}/status",
+        json={"status": "down"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 403
+
+
+def test_oven_status_404s_with_a_correctly_scoped_service_token(client: TestClient) -> None:
+    token = _token(_signing_key(client), sub="gateway", role="service", scope=["kitchen:advance"])
+
+    response = client.post(
+        f"/ovens/{uuid.uuid4()}/status",
+        json={"status": "down"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    # 404 (unknown oven), not 403 — proves the scope check passed.
+    assert response.status_code == 404

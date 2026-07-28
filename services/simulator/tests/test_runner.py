@@ -2,7 +2,7 @@ import asyncio
 import uuid
 
 from simulator.client.api import OrderResult
-from simulator.client.models import Address, Customer, MenuItem, Order, StatusEnum
+from simulator.client.models import Address, Customer, MenuItem, Order, OrderStatusEnum
 from simulator.config import CustomersConfig, ThinkTimeConfig
 from simulator.runner import run
 
@@ -14,6 +14,9 @@ class _FastFakeClient:
 
     async def get_speed(self) -> int:
         return 1
+
+    async def get_active_scenario_overrides(self) -> dict[str, object]:
+        return {}
 
     async def get_menu(self) -> list[MenuItem]:
         return [
@@ -45,7 +48,7 @@ class _FastFakeClient:
             order=Order(
                 id=uuid.uuid4(),
                 code="4400",
-                status=StatusEnum.accepted,
+                status=OrderStatusEnum.accepted,
                 subtotal_cents=1200,
                 delivery_fee_cents=299,
                 total_cents=1499,

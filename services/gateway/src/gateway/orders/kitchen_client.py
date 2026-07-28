@@ -86,3 +86,107 @@ def get_capacity_quote(
         queue_depth=body["queue_depth"],
         projected_wait_s=body["projected_wait_s"],
     )
+
+
+class KitchenUnavailableError(Exception):
+    """Raised only by writes (`set_oven_status`) — an admin action needs to
+    know it didn't take effect. Reads (`get_queue`/`get_ovens`) instead
+    return `None` on the same failures, since a degraded-but-honest board
+    (kitchen's panel empty while orders keep flowing through gateway) is the
+    whole point of Phase 8/10, not a reason to fail the request."""
+
+
+def _get(
+    path: str, *, correlation_id: str | None, client: httpx.Client | None
+) -> list[dict[str, object]] | None:
+    cfg = load_config().service_client
+    token = mint_service_token(scope=["kitchen:read"], correlation_id=correlation_id)
+    http = client if client is not None else httpx
+
+    def _request() -> httpx.Response:
+        response = http.get(
+            f"{KITCHEN_BASE_URL}{path}",
+            timeout=cfg.timeout_seconds,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        response.raise_for_status()
+        return response
+
+    try:
+        response = _get_breaker().call(
+            lambda: retry_with_jitter(
+                _request,
+                max_attempts=cfg.retry_max_attempts,
+                base_delay_seconds=cfg.retry_base_delay_seconds,
+                max_delay_seconds=cfg.retry_max_delay_seconds,
+                retry_on=_TRANSIENT_ERRORS,
+            ),
+            retry_on=_TRANSIENT_ERRORS,
+        )
+    except (httpx.HTTPError, CircuitBreakerOpenError):
+        return None
+
+    body: list[dict[str, object]] = response.json()
+    return body
+
+
+def get_queue(
+    *, correlation_id: str | None = None, client: httpx.Client | None = None
+) -> list[dict[str, object]] | None:
+    """`GET /queue` — tickets ordered by priority (SPEC.md §3.3). `None`
+    means kitchen didn't answer; production callers never pass `client`."""
+    return _get("/queue", correlation_id=correlation_id, client=client)
+
+
+def get_ovens(
+    *, correlation_id: str | None = None, client: httpx.Client | None = None
+) -> list[dict[str, object]] | None:
+    """`GET /ovens` — slot occupancy + `frees_at` (SPEC.md §3.3)."""
+    return _get("/ovens", correlation_id=correlation_id, client=client)
+
+
+def set_oven_status(
+    oven_id: str,
+    status: str,
+    *,
+    correlation_id: str | None = None,
+    client: httpx.Client | None = None,
+) -> dict[str, object]:
+    """`POST /ovens/{id}/status` — the chaos "oven down" write path. Unlike
+    the read functions above, a manager clicking this needs to know if it
+    didn't take effect, so failure raises rather than degrading silently."""
+    cfg = load_config().service_client
+    token = mint_service_token(scope=["kitchen:advance"], correlation_id=correlation_id)
+    http = client if client is not None else httpx
+
+    def _request() -> httpx.Response:
+        response = http.post(
+            f"{KITCHEN_BASE_URL}/ovens/{oven_id}/status",
+            json={"status": status},
+            timeout=cfg.timeout_seconds,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        response.raise_for_status()
+        return response
+
+    try:
+        response = _get_breaker().call(
+            lambda: retry_with_jitter(
+                _request,
+                max_attempts=cfg.retry_max_attempts,
+                base_delay_seconds=cfg.retry_base_delay_seconds,
+                max_delay_seconds=cfg.retry_max_delay_seconds,
+                retry_on=_TRANSIENT_ERRORS,
+            ),
+            retry_on=_TRANSIENT_ERRORS,
+        )
+    except httpx.HTTPStatusError:
+        # Kitchen answered — a 404 (unknown oven) or 422 (bad status value)
+        # is a real, well-formed answer the caller should see verbatim, not
+        # a reachability failure.
+        raise
+    except (httpx.HTTPError, CircuitBreakerOpenError) as exc:
+        raise KitchenUnavailableError(str(exc)) from exc
+
+    result: dict[str, object] = response.json()
+    return result

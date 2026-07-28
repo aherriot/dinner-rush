@@ -35,6 +35,28 @@
           "vehicle": {
             "title": "Vehicle",
             "type": "string"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X"
+          },
+          "y": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Y"
           }
         },
         "required": [
@@ -302,7 +324,7 @@
   "paths": {
     "/couriers": {
       "get": {
-        "description": "`GET /couriers` (SPEC.md \u00a73.4) \u2014 positions live in Redis; this is\nstatus/metadata only, same split as oven state in kitchen's `/ovens`.",
+        "description": "`GET /couriers` (SPEC.md \u00a73.4) \u2014 status/metadata from Postgres, current\nposition from Redis, merged into one board-friendly shape.",
         "operationId": "list_couriers_couriers_get",
         "parameters": [
           {

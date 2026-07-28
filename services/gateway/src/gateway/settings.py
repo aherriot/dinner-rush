@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "gateway.accounts",
     "gateway.orders",
     "gateway.eventing",
+    "gateway.board",
 ]
 
 MIDDLEWARE = [
