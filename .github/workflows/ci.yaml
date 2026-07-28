@@ -57,6 +57,19 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
+      dispatch-postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_DB: dispatch
+          POSTGRES_USER: dispatch
+          POSTGRES_PASSWORD: dispatch
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U dispatch -d dispatch"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
       redis:
         image: redis:8.8-alpine
         ports:
@@ -95,6 +108,11 @@ jobs:
           uv run python services/kitchen/scripts/export_openapi.py
           git diff --exit-code -- services/kitchen/openapi.json
 
+      - name: dispatch's checked-in OpenAPI schema is up to date
+        run: |
+          uv run python services/dispatch/scripts/export_openapi.py
+          git diff --exit-code -- services/dispatch/openapi.json
+
       - name: simulator's generated client is up to date
         run: |
           uv run python services/simulator/scripts/generate_client.py
@@ -106,6 +124,8 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           KITCHEN_POSTGRES_HOST: localhost
           KITCHEN_POSTGRES_PORT: "5433"
+          DISPATCH_POSTGRES_HOST: localhost
+          DISPATCH_POSTGRES_PORT: "5434"
         run: uv run pytest
 
   frontend:
