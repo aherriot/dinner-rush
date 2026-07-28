@@ -2,9 +2,13 @@
 
 Models only the sections a service needs today (`speed`, `gateway`, `menu`,
 plus `dispatch.restaurant` — the fixed origin point the gateway needs for its
-own `outside_range` distance check before dispatch exists). Other top-level
-keys (kitchen, the rest of dispatch, simulator, scenarios, ...) are left
-unmodeled until the phase that consumes them — see PHASES.md.
+own `outside_range` distance check before dispatch exists). `simulator` is
+modeled down to exactly one field (`customers.population`, for gateway's seed
+command) — the simulator service itself never imports this module and has
+its own, separate config loader for the full `simulator`/`scenarios` blocks
+(CLAUDE.md §5: no shared domain imports). Other top-level keys (the rest of
+dispatch, scenarios, ...) are left unmodeled until the phase that consumes
+them — see PHASES.md.
 """
 
 import os
@@ -113,6 +117,22 @@ class KitchenConfig(BaseModel):
     capacity: CapacityConfig
 
 
+class SimulatorCustomersConfig(BaseModel):
+    """Only the one field gateway's seed command needs — the simulator itself
+    reads the full `simulator`/`scenarios` blocks with its own, unshared
+    config loader (CLAUDE.md §5: no shared domain imports)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    population: int
+
+
+class SimulatorConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    customers: SimulatorCustomersConfig
+
+
 class RootConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -123,6 +143,7 @@ class RootConfig(BaseModel):
     menu: list[MenuItemConfig]
     streams: StreamsConfig
     service_client: ServiceClientConfig
+    simulator: SimulatorConfig
 
 
 class ConfigNotFoundError(FileNotFoundError):

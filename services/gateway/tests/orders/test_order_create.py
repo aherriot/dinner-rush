@@ -1,6 +1,7 @@
 import pytest
 from rest_framework.test import APIClient
 
+from gateway.accounts.speed import set_speed
 from gateway.catalog.models import MenuItem
 from gateway.customers.models import Address, Customer
 from gateway.orders import kitchen_client
@@ -304,7 +305,10 @@ def test_admin_speed_endpoint_rejects_non_manager(as_customer: APIClient) -> Non
 
 @pytest.mark.django_db
 def test_admin_speed_endpoint_accepts_manager(as_manager: APIClient) -> None:
-    response = as_manager.post("/api/v1/admin/speed", {"speed": 10}, format="json")
+    try:
+        response = as_manager.post("/api/v1/admin/speed", {"speed": 10}, format="json")
 
-    assert response.status_code == 200
-    assert response.json() == {"speed": 10}
+        assert response.status_code == 200
+        assert response.json() == {"speed": 10}
+    finally:
+        set_speed(1)  # shared Redis key, not a per-test transaction — reset it

@@ -17,13 +17,11 @@ seed: ## menu, customers, staff, ovens and stations from config.yaml
 demo: up seed ## up + seed + open the board — the one-command entry point
 	@echo "make demo: board UI lands in Phase 8 — see PHASES.md"
 
-sim: ## start the simulator at baseline rate — lands in Phase 6
-	@echo "make sim: not implemented yet — see PHASES.md Phase 6"
-	@exit 1
+sim: ## start the simulator at baseline rate — runs until Ctrl-C / `docker compose stop`
+	docker compose --profile simulator run --rm simulator python -m simulator.cli
 
-rush: ## trigger the friday_rush scenario — lands in Phase 6
-	@echo "make rush: not implemented yet — see PHASES.md Phase 6"
-	@exit 1
+rush: ## trigger the friday_rush scenario — runs for its duration_seconds, then stops
+	docker compose --profile simulator run --rm simulator python -m simulator.cli --scenario friday_rush
 
 test: ## all Python tests, against real Postgres + Redis
 	docker compose up -d --wait --wait-timeout 90 gateway-db kitchen-db redis
@@ -44,6 +42,8 @@ lint: ## ruff, mypy, stylelint, eslint, token + generated-client drift check
 	git diff --exit-code -- services/gateway/openapi.json
 	uv run python services/kitchen/scripts/export_openapi.py
 	git diff --exit-code -- services/kitchen/openapi.json
+	uv run python services/simulator/scripts/generate_client.py
+	git diff --exit-code -- services/simulator/src/simulator/client/models.py
 	cd apps/web && pnpm run tokens:check
 	cd apps/web && pnpm run api:check
 	cd apps/web && pnpm run lint

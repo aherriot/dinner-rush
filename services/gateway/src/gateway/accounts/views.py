@@ -15,7 +15,7 @@ from gateway.accounts.serializers import (
     TokenRequestSerializer,
     TokenResponseSerializer,
 )
-from gateway.accounts.speed import VALID_SPEEDS, set_speed
+from gateway.accounts.speed import VALID_SPEEDS, get_speed, set_speed
 from gateway.common.authentication import get_actor
 from gateway.common.permissions import IsManager
 from gateway.customers.models import Customer
@@ -113,3 +113,23 @@ class AdminSpeedView(APIView):
             raise ValidationError(f"speed must be one of {VALID_SPEEDS}")
         set_speed(speed)
         return Response({"speed": speed})
+
+
+class SpeedView(APIView):
+    """`GET /speed` — read-only, unauthenticated.
+
+    The no-virtual-clock rule (SPEC.md §5) applies to every client that
+    schedules a domain-time delay, not just services — the simulator's think
+    times and dwell times must divide by the live `SPEED` at the point of use
+    same as everything else, and it has no privileged scope to call the
+    manager-only `POST /admin/speed` to find out what that value is. The
+    current speed isn't sensitive, so this is open rather than routed through
+    a scope that would misrepresent it as one.
+    """
+
+    permission_classes = []
+    authentication_classes = []
+
+    @extend_schema(responses=SpeedSerializer)
+    def get(self, request: Request) -> Response:
+        return Response({"speed": get_speed()})

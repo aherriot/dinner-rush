@@ -5,7 +5,7 @@ description = "Root workspace — not published, not installed"
 requires-python = ">=3.13"
 
 [tool.uv.workspace]
-members = ["packages/dinner_rush_core", "services/gateway", "services/kitchen"]
+members = ["packages/dinner_rush_core", "services/gateway", "services/kitchen", "services/simulator"]
 
 [dependency-groups]
 dev = [
@@ -13,15 +13,28 @@ dev = [
     "mypy>=2.3,<3",
     "pytest>=9.1,<10",
     "pytest-repeat>=0.9,<1",
+    "pytest-asyncio>=1.0,<2",
     "testcontainers>=4.15,<5",
     "types-pyyaml>=6.0,<7",
+    # Generates services/simulator/src/simulator/client/models.py from
+    # services/gateway/openapi.json — not a simulator runtime dependency.
+    "datamodel-code-generator>=0.35,<1",
 ]
 
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-src = ["packages/dinner_rush_core/src", "services/gateway/src", "services/kitchen/src"]
-extend-exclude = ["**/migrations/*", "**/alembic/versions/*"]
+src = [
+    "packages/dinner_rush_core/src",
+    "services/gateway/src",
+    "services/kitchen/src",
+    "services/simulator/src",
+]
+extend-exclude = [
+    "**/migrations/*",
+    "**/alembic/versions/*",
+    "services/simulator/src/simulator/client/models.py", # generated, see scripts/generate_client.py
+]
 
 [tool.ruff.lint]
 select = [
@@ -33,13 +46,23 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["dinner_rush_core", "gateway", "kitchen"]
+known-first-party = ["dinner_rush_core", "gateway", "kitchen", "simulator"]
 
 [tool.mypy]
 python_version = "3.13"
 strict = true
-mypy_path = ["packages/dinner_rush_core/src", "services/gateway/src", "services/kitchen/src"]
-files = ["packages/dinner_rush_core/src", "services/gateway/src", "services/kitchen/src"]
+mypy_path = [
+    "packages/dinner_rush_core/src",
+    "services/gateway/src",
+    "services/kitchen/src",
+    "services/simulator/src",
+]
+files = [
+    "packages/dinner_rush_core/src",
+    "services/gateway/src",
+    "services/kitchen/src",
+    "services/simulator/src",
+]
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
 
 [tool.django-stubs]
@@ -57,6 +80,16 @@ ignore_errors = true
 module = "kitchen.alembic.versions.*"
 ignore_errors = true
 
+[[tool.mypy.overrides]]
+module = "simulator.client.models"
+ignore_errors = true
+
 [tool.pytest.ini_options]
-testpaths = ["services/gateway/tests", "services/kitchen/tests", "packages/dinner_rush_core/tests"]
+testpaths = [
+    "services/gateway/tests",
+    "services/kitchen/tests",
+    "services/simulator/tests",
+    "packages/dinner_rush_core/tests",
+]
 DJANGO_SETTINGS_MODULE = "gateway.settings"
+asyncio_mode = "auto"
