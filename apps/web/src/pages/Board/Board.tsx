@@ -20,6 +20,7 @@ import {
   lateRatioPercent,
   mapCouriers,
   mapOvens,
+  mapTripLines,
   ordersPerMinute,
   toOrderFeedRows,
   type BoardOrder,
@@ -39,7 +40,13 @@ const CHAOS_SCENARIOS: ChaosScenarioOption[] = [
 
 const TICK_INTERVAL_MS = 3000;
 const RESYNC_DEBOUNCE_MS = 300;
-const PERIODIC_RESYNC_MS = 30_000;
+// Courier position updates (`POST /couriers/{id}/position`) are Redis-only —
+// no outbox event, per SPEC.md §1.3 ("nothing durable lives here") — so the
+// board's *only* way to see a courier move is this periodic re-fetch. Match
+// it to config.example.yaml's `position_report_interval_seconds: 5` (how
+// often dispatch's autopilot reports a new position) so the dispatch map
+// reads as continuous movement rather than 30-second jumps.
+const PERIODIC_RESYNC_MS = 5_000;
 
 export function Board() {
   return (
@@ -252,6 +259,7 @@ function BoardDashboard() {
         <div className={styles.dispatch}>
           <DispatchPanel
             couriers={mapCouriers(data?.couriers ?? null)}
+            trips={mapTripLines(data?.trips ?? null)}
             activeTripCount={data?.trips?.length}
             state={data === null ? "loading" : data.couriers === null ? "error" : "idle"}
             errorMessage="Dispatch is unreachable."

@@ -84,7 +84,13 @@ simulator:
 
   customers:
     arrival: poisson # NOT a fixed-interval loop — an evaluator will look
-    baseline_rate_per_minute: 6
+    # 16 oven slots (kitchen.ovens below) × an average ~451s bake per ticket
+    # (weighted over menu bake_seconds and basket_size_weights, one slot per
+    # ticket regardless of oven_slots — ADR 0004) ≈ 2.1 orders/min sustained
+    # throughput. 1/min keeps the baseline comfortably under that (calm,
+    # "orders flowing through" per PIZZA.md) with room for Poisson variance;
+    # friday_rush's 3x override then clears the ceiling on purpose.
+    baseline_rate_per_minute: 1
     think_time_seconds: { min: 5, max: 40 }
     basket_size_weights: { 1: 0.45, 2: 0.32, 3: 0.16, 4: 0.07 }
     cancel_probability: 0.02
@@ -106,7 +112,7 @@ scenarios:
     description: "Order rate triples. Queue climbs, promises stretch, door closes."
     duration_seconds: 600
     overrides:
-      simulator.customers.baseline_rate_per_minute: 18
+      simulator.customers.baseline_rate_per_minute: 3
       simulator.customers.basket_size_weights: { 1: 0.25, 2: 0.35, 3: 0.25, 4: 0.15 }
     expect: "queue_depth > 30; rejections begin; p95 promise error grows"
 

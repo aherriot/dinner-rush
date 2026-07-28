@@ -46,6 +46,11 @@ export interface DispatchTripRaw {
   id: string;
   code: string;
   status: string;
+  courier_id: string;
+  pickup_x: number;
+  pickup_y: number;
+  dropoff_x: number;
+  dropoff_y: number;
 }
 
 /** Every order-status-affecting event type maps to exactly one FSM status
@@ -177,4 +182,22 @@ export function mapCouriers(couriers: DispatchCourierRaw[] | null): CourierMapEn
       x: courier.x,
       y: courier.y,
     }));
+}
+
+/** Trips still in flight (`assigned`/`picked_up`/`delivering` — dispatch's
+ * own `GET /trips` already filters to these) drawn as a pickup->dropoff
+ * line, so "N active trips" has something on the map explaining it rather
+ * than a count next to unconnected courier dots. */
+export function mapTripLines(
+  trips: DispatchTripRaw[] | null,
+): { id: string; code: string; fromX: number; fromY: number; toX: number; toY: number }[] {
+  if (!trips) return [];
+  return trips.map((trip) => ({
+    id: trip.id,
+    code: trip.code,
+    fromX: trip.pickup_x,
+    fromY: trip.pickup_y,
+    toX: trip.dropoff_x,
+    toY: trip.dropoff_y,
+  }));
 }

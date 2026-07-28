@@ -107,6 +107,8 @@ export function StatusBar({
         })}
         <ActionMenu
           label="Chaos"
+          placement="top"
+          align="end"
           items={scenarios.map((scenario) => ({
             key: scenario.name,
             label: scenario.label,

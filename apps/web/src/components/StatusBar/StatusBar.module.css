@@ -1,3 +1,9 @@
+/* No overflow clipping on .bar, on purpose — the Chaos ActionMenu's dropdown
+   (`placement="top"`) has to render above this bar's own bounds, and
+   `overflow-x: auto` alone forces `overflow-y` to compute as `auto` too (not
+   `visible`), which would clip it. The board isn't a mobile surface
+   (DESIGN.md §10), so there's no narrow-viewport case this bar itself needs
+   to scroll for. */
 .bar {
   display: flex;
   align-items: center;
@@ -7,7 +13,6 @@
   background: var(--bg-panel);
   border: var(--border-subtle) 1px solid;
   border-radius: var(--radius-lg);
-  overflow-x: auto;
 }
 
 .section {

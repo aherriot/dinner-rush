@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { DispatchPanel, type CourierMapEntry } from "./DispatchPanel";
+import { DispatchPanel, type CourierMapEntry, type TripLine } from "./DispatchPanel";
 
 const couriers: CourierMapEntry[] = [
   { id: "c1", name: "Ada", status: "active", x: 50, y: 50 },
@@ -20,6 +20,23 @@ describe("DispatchPanel", () => {
     const dot = screen.getByRole("img", { name: /courier active/i });
     const pin = dot.parentElement;
     expect(pin).toHaveStyle({ left: "25%", top: "75%" });
+  });
+
+  it("renders a legend explaining each courier status", () => {
+    render(<DispatchPanel couriers={couriers} />);
+    expect(screen.getByText("Idle")).toBeInTheDocument();
+    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(screen.getByText("Restaurant")).toBeInTheDocument();
+  });
+
+  it("draws a trip line from the restaurant to each dropoff", () => {
+    const trips: TripLine[] = [{ id: "t1", code: "4471", fromX: 50, fromY: 50, toX: 80, toY: 20 }];
+    const { container } = render(<DispatchPanel couriers={couriers} trips={trips} />);
+    const line = container.querySelector("line");
+    expect(line).not.toBeNull();
+    expect(line?.getAttribute("x2")).toBe("80");
+    expect(line?.getAttribute("y2")).toBe("20");
   });
 
   it("renders the empty state when there are no couriers and no explicit state", () => {

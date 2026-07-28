@@ -21,14 +21,14 @@ def test_friday_rush_overrides_the_baseline_rate_and_keeps_its_duration() -> Non
     run = apply_scenario_overrides("friday_rush")
 
     assert run.duration_seconds == 600
-    assert run.simulator.customers.baseline_rate_per_minute == 18
+    assert run.simulator.customers.baseline_rate_per_minute == 3
     assert run.simulator.customers.basket_size_weights[4] == 0.15
 
 
 def test_baseline_config_is_unaffected_after_applying_a_scenario() -> None:
     apply_scenario_overrides("friday_rush")
 
-    assert load_config().simulator.customers.baseline_rate_per_minute == 6
+    assert load_config().simulator.customers.baseline_rate_per_minute == 1
 
 
 def test_unknown_scenario_name_raises() -> None:

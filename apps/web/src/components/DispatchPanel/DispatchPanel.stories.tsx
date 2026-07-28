@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { DispatchPanel, type CourierMapEntry } from "./DispatchPanel";
+import { DispatchPanel, type CourierMapEntry, type TripLine } from "./DispatchPanel";
 
 const meta = {
   title: "Components/DispatchPanel",
@@ -16,8 +16,13 @@ const couriers: CourierMapEntry[] = [
   { id: "c4", name: "Katherine", status: "offline", x: 80, y: 15 },
 ];
 
+const trips: TripLine[] = [
+  { id: "t1", code: "4471", fromX: 50, fromY: 50, toX: 62, toY: 40 },
+  { id: "t2", code: "4472", fromX: 50, fromY: 50, toX: 55, toY: 55 },
+];
+
 export const Populated: Story = {
-  args: { couriers, activeTripCount: 6 },
+  args: { couriers, trips, activeTripCount: 6 },
 };
 
 export const Loading: Story = {

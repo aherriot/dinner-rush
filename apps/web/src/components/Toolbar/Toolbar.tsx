@@ -69,14 +69,30 @@ export interface ActionMenuItem {
   onSelect: () => void;
 }
 
-export function ActionMenu({ label, items }: { label: string; items: ActionMenuItem[] }) {
+export interface ActionMenuProps {
+  label: string;
+  items: ActionMenuItem[];
+  /** Which side of the trigger the dropdown opens toward. Defaults to
+   * "bottom" (the natural direction); pass "top" when the trigger sits at
+   * the bottom of the viewport (e.g. the board's status bar) so the menu
+   * doesn't render below the visible area. */
+  placement?: "top" | "bottom";
+  /** Which edge of the trigger the dropdown's own edge lines up with.
+   * Defaults to "start" (dropdown's left edge at the button's left edge,
+   * opening rightward); pass "end" when the trigger sits at the right edge
+   * of its container so the dropdown opens leftward instead of running off
+   * screen. */
+  align?: "start" | "end";
+}
+
+export function ActionMenu({ label, items, placement = "bottom", align = "start" }: ActionMenuProps) {
   return (
     <Menu as="div" className={styles["menu-root"]}>
       <MenuButton className={styles["menu-button"]}>
         {label}
         <span aria-hidden="true">▾</span>
       </MenuButton>
-      <MenuItems className={styles["menu-items"]}>
+      <MenuItems className={styles["menu-items"]} data-placement={placement} data-align={align}>
         {items.map((item) => (
           <MenuItem key={item.key}>
             <button type="button" className={styles["menu-item"]} onClick={item.onSelect}>
