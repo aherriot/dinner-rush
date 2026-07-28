@@ -34,6 +34,7 @@ export function OrderTracker() {
   useEffect(() => {
     if (!code) return;
     let cancelled = false;
+    let terminal = false;
     let socket: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -50,29 +51,40 @@ export function OrderTracker() {
       }
       setOrder(orderResult.data);
       setTimeline((timelineResult.data as TimelineEvent[] | undefined) ?? null);
+      terminal = isTerminal(orderResult.data.status);
       return orderResult.data;
     }
 
     function connect() {
       const token = getAccessToken();
-      if (cancelled || !token) return;
+      if (cancelled || terminal || !token) return;
 
       const params = new URLSearchParams({ token });
       if (lastEventIdRef.current) params.set("last_event_id", lastEventIdRef.current);
       socket = new WebSocket(`${GATEWAY_WS_URL}/ws/orders/${code}/?${params.toString()}`);
 
       socket.onmessage = (message: MessageEvent<string>) => {
-        const envelope = JSON.parse(message.data) as { event_id: string };
-        lastEventIdRef.current = envelope.event_id;
-        void refetch();
+        // `stream_id` is the Redis stream position (`<ms>-<seq>`) — the only
+        // thing valid in `?last_event_id=` on reconnect. The envelope's own
+        // `event_id` is a business UUID for a different purpose and isn't a
+        // stream position at all; sending it back here is what used to
+        // crash the connection on every reconnect (server-side `XRANGE`
+        // rejects it outright).
+        const payload = JSON.parse(message.data) as { stream_id: string };
+        lastEventIdRef.current = payload.stream_id;
+        void refetch().then(() => {
+          // A terminal order produces no further events — close rather than
+          // leave the socket idle waiting for pushes that will never come.
+          if (terminal) socket?.close();
+        });
       };
       socket.onclose = () => {
-        if (!cancelled) reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+        if (!cancelled && !terminal) reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
       };
     }
 
     void refetch().then((current) => {
-      if (current && !isTerminal(current.status)) connect();
+      if (current && !terminal) connect();
     });
 
     return () => {

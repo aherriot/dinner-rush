@@ -8,7 +8,10 @@ Three groups now:
   redelivery-is-a-no-op test against).
 - `cg:ws-fanout` pushes to an in-memory Channels group and is at-least-once
   by design; the browser dedupes by `event_id` client-side, so there is
-  nothing to make idempotent server-side.
+  nothing to make idempotent server-side. It's also the one handler that
+  needs the Redis stream id (not just the envelope) — see its own
+  docstring — so it's the one entry in `HANDLERS` that takes a
+  `StreamMessage` directly instead of a bare `EventEnvelope`.
 - `cg:order-sync` (Phase 4) folds kitchen's own `order.queued`/`baking`/
   `baked`/`ready` events back into this `Order`'s `status` and timeline —
   gateway no longer drives those transitions itself, kitchen does, and this
@@ -24,6 +27,7 @@ from django.utils import timezone
 
 from dinner_rush_core.events.envelope import EventEnvelope
 from dinner_rush_core.outbox import mark_processed_or_skip
+from dinner_rush_core.streams import StreamMessage
 from gateway.eventing.models import EventTypeCounter
 from gateway.orders.fsm import is_terminal
 from gateway.orders.models import Order, OrderStatusEvent
@@ -63,13 +67,24 @@ def handle_analytics(envelope: EventEnvelope) -> None:
         counter.save(update_fields=["count"])
 
 
-def handle_ws_fanout(envelope: EventEnvelope) -> None:
+def handle_ws_fanout(message: StreamMessage) -> None:
+    """Needs `message.message_id` — the actual Redis stream id — alongside
+    the envelope, because the browser echoes it back as `?last_event_id=`
+    on reconnect (DECISIONS.md §0003: "resumes from a last-seen event id"),
+    and only a genuine stream id (`<ms>-<seq>`) is valid there; the
+    envelope's own `event_id` is a business UUID and `XRANGE` rejects it
+    outright. Send both, under different names, so the browser never
+    confuses the two."""
     channel_layer = get_channel_layer()
     if channel_layer is None:
         return
     async_to_sync(channel_layer.group_send)(
-        f"order.{envelope.aggregate_id}",
-        {"type": "order.event", "envelope": envelope.model_dump(mode="json")},
+        f"order.{message.envelope.aggregate_id}",
+        {
+            "type": "order.event",
+            "envelope": message.envelope.model_dump(mode="json"),
+            "stream_id": message.message_id,
+        },
     )
 
 
@@ -105,8 +120,8 @@ def handle_order_sync(envelope: EventEnvelope) -> None:
         )
 
 
-HANDLERS: dict[str, Callable[[EventEnvelope], None]] = {
-    CONSUMER_GROUP_ANALYTICS: handle_analytics,
+HANDLERS: dict[str, Callable[[StreamMessage], None]] = {
+    CONSUMER_GROUP_ANALYTICS: lambda message: handle_analytics(message.envelope),
     CONSUMER_GROUP_WS_FANOUT: handle_ws_fanout,
-    CONSUMER_GROUP_ORDER_SYNC: handle_order_sync,
+    CONSUMER_GROUP_ORDER_SYNC: lambda message: handle_order_sync(message.envelope),
 }

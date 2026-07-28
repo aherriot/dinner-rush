@@ -43,10 +43,14 @@ def test_owning_customer_can_connect_and_gets_live_pushes(
 
         await get_channel_layer().group_send(
             f"order.{order.id}",
-            {"type": "order.event", "envelope": {"event_type": "order.ready", "code": "9100"}},
+            {
+                "type": "order.event",
+                "envelope": {"event_type": "order.ready", "code": "9100"},
+                "stream_id": "1700000000000-0",
+            },
         )
         push = await communicator.receive_json_from()
-        assert push == {"event_type": "order.ready", "code": "9100"}
+        assert push == {"event_type": "order.ready", "code": "9100", "stream_id": "1700000000000-0"}
 
         await communicator.disconnect()
 
@@ -125,7 +129,7 @@ def test_reconnecting_with_last_event_id_replays_the_gap(
         payload={"code": "0000", "actual_bake_s": 1.0},
     )
     last_seen_id = publish(client, stream_key, unrelated_order_event)
-    publish(client, stream_key, missed)
+    missed_stream_id = publish(client, stream_key, missed)
 
     async def scenario() -> None:
         communicator = WebsocketCommunicator(
@@ -136,6 +140,39 @@ def test_reconnecting_with_last_event_id_replays_the_gap(
 
         replayed = await communicator.receive_json_from()
         assert replayed["event_id"] == str(missed.event_id)
+        # Regression: this must be the real Redis stream id, not
+        # `missed.event_id` — that's what a client is expected to send back
+        # as the next `?last_event_id=`, and only a genuine stream id
+        # survives `XRANGE` there.
+        assert replayed["stream_id"] == missed_stream_id
+
+        await communicator.disconnect()
+
+    async_to_sync(scenario)()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_reconnecting_with_a_malformed_last_event_id_does_not_crash_the_connection(
+    customer_with_address: tuple[Customer, Address],
+) -> None:
+    """Regression: `?last_event_id=` used to receive the envelope's own
+    `event_id` (a business UUID) instead of the real Redis stream id
+    (`test_reconnecting_with_last_event_id_replays_the_gap`, above, covers
+    the fix at the source). A client sending a malformed value here — an old
+    cached frontend, a bug, a bad actor — used to crash the whole connection
+    (`XRANGE` raising `ResponseError`, uncaught, closing with code 1011)
+    instead of just skipping the replay."""
+    customer, address = customer_with_address
+    _order(customer, address, "9105")
+    token = customer_token(customer.id)
+
+    async def scenario() -> None:
+        bogus_last_event_id = str(uuid.uuid4())
+        communicator = WebsocketCommunicator(
+            application, f"/ws/orders/9105/?token={token}&last_event_id={bogus_last_event_id}"
+        )
+        connected, _ = await communicator.connect()
+        assert connected  # must not crash — a malformed last_event_id just skips replay
 
         await communicator.disconnect()
 

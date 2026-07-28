@@ -9,7 +9,14 @@ from django.db import connection, transaction
 
 from dinner_rush_core.events.envelope import EventEnvelope
 from dinner_rush_core.outbox import relay_batch
-from dinner_rush_core.streams import ack, autoclaim, ensure_group, publish, read_batch
+from dinner_rush_core.streams import (
+    StreamMessage,
+    ack,
+    autoclaim,
+    ensure_group,
+    publish,
+    read_batch,
+)
 from gateway.eventing.handlers import handle_analytics, handle_ws_fanout
 from gateway.eventing.models import EventTypeCounter, Outbox, ProcessedEvent
 from gateway.eventing.redis_client import get_redis_client
@@ -159,8 +166,28 @@ def test_handle_ws_fanout_pushes_to_the_orders_channel_group() -> None:
     group_name = f"order.{envelope.aggregate_id}"
     async_to_sync(channel_layer.group_add)(group_name, "test-channel")
 
-    handle_ws_fanout(envelope)
+    handle_ws_fanout(StreamMessage(message_id="1700000000000-0", envelope=envelope))
 
     message = async_to_sync(channel_layer.receive)("test-channel")
     assert message["type"] == "order.event"
     assert message["envelope"]["event_id"] == str(envelope.event_id)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_handle_ws_fanout_sends_the_real_stream_id_not_the_envelopes_event_id() -> None:
+    """Regression test: the browser echoes this value back as
+    `?last_event_id=` on reconnect, and only a genuine Redis stream id
+    (`<ms>-<seq>`) survives `XRANGE` there — the envelope's own `event_id`
+    is an unrelated business UUID and crashes the websocket consumer when
+    sent back (see `test_replay_...` in test_consumers.py for the other
+    half of this regression)."""
+    envelope = _envelope()
+    channel_layer = get_channel_layer()
+    group_name = f"order.{envelope.aggregate_id}"
+    async_to_sync(channel_layer.group_add)(group_name, "test-channel")
+
+    handle_ws_fanout(StreamMessage(message_id="1700000000000-0", envelope=envelope))
+
+    message = async_to_sync(channel_layer.receive)("test-channel")
+    assert message["stream_id"] == "1700000000000-0"
+    assert message["stream_id"] != str(envelope.event_id)

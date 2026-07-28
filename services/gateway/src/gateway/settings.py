@@ -109,10 +109,19 @@ CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = None
 CELERY_TASK_DEFAULT_QUEUE = "gateway"
 
+# `socket_timeout` is explicit and deliberately longer than channels_redis's
+# own internal receive-loop poll (`brpop_timeout = 5`, hardcoded in
+# channels_redis.core). redis-py 8.x's `ConnectionPool.from_url` defaults
+# `socket_timeout` to 5s too — the same length as that poll — so an
+# ordinary, message-free BZPOPMIN wait races its own client-side read
+# timeout and loses essentially every cycle, killing an idle websocket's
+# channel-layer connection with `redis.exceptions.TimeoutError` every
+# ~5-8s regardless of anything the client does. Any value comfortably
+# above 5s fixes it; 20s leaves headroom without masking a real hang.
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [REDIS_URL]},
+        "CONFIG": {"hosts": [{"address": REDIS_URL, "socket_timeout": 20}]},
     }
 }
 
