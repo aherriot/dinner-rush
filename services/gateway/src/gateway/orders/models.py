@@ -76,6 +76,12 @@ class OrderStatusEvent(UUID7Model):
     event = models.CharField(max_length=20)
     occurred_at = models.DateTimeField(auto_now_add=True)
 
+    # Set only on the `reject` event — mirrors the `order.rejected` outbox
+    # payload so the reason lives with the event that caused it, not just
+    # denormalized onto the terminal Order row.
+    reason = models.CharField(max_length=20, choices=REJECTION_REASONS, null=True, blank=True)
+    queue_depth = models.PositiveIntegerField(null=True, blank=True)
+
     class Meta:
         ordering = ["occurred_at"]
 

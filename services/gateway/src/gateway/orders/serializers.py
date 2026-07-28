@@ -69,4 +69,4 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
 class OrderStatusEventSerializer(serializers.ModelSerializer[OrderStatusEvent]):
     class Meta:
         model = OrderStatusEvent
-        fields = ["from_status", "to_status", "event", "occurred_at"]
+        fields = ["from_status", "to_status", "event", "occurred_at", "reason", "queue_depth"]

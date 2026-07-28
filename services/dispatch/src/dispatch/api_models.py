@@ -59,5 +59,18 @@ class DropoffOut(BaseModel):
     dropoff_y: int
 
 
+class BacklogOut(BaseModel):
+    """`GET /backlog` — orders sitting in `pending_dropoff` with no `trip`
+    row yet: `ready` and waiting on an assignment the retry loop hasn't found
+    a courier for. Not visible anywhere else on the board; this is the number
+    that would have caught a stuck assignment loop immediately."""
+
+    ready_count: int
+    #: Age of the oldest such row, or `None` when the backlog is empty —
+    #: never `0`, so an empty backlog can't be confused with "just started
+    #: waiting".
+    oldest_waiting_seconds: float | None
+
+
 class TripFailRequest(BaseModel):
     reason: str

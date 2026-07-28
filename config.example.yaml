@@ -43,6 +43,7 @@ dispatch:
   batch_max_detour_cells: 8
 
   assignment_retry_seconds: 10 # when no courier is in range
+  max_assignment_retry_seconds: 90 # cap for the exponential backoff below assignment_retry_seconds — an order with no available courier for a long stretch retries at a constant ~1s (scaled by SPEED) cadence otherwise, which was observed to flood the Celery worker and starve already-assigned trips' own scheduled ETA tasks from running
   address_grant_ttl_seconds: 3600 # SPEC.md §6.2
   eta_recalc_interval_seconds: 30
 

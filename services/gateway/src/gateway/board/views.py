@@ -58,6 +58,7 @@ class BoardSnapshotView(APIView):
             "dispatch": {
                 "trips": dispatch_client.get_trips(correlation_id=correlation_id),
                 "couriers": dispatch_client.get_couriers(correlation_id=correlation_id),
+                "backlog": dispatch_client.get_backlog(correlation_id=correlation_id),
             },
         }
         return Response(BoardSnapshotSerializer(data).data)

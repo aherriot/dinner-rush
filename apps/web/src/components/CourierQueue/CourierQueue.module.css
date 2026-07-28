@@ -1,0 +1,112 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gutter);
+  height: 100%;
+  min-height: 0;
+}
+
+.backlog {
+  display: flex;
+  align-items: center;
+  gap: var(--panel-gap);
+  padding: var(--panel-gap) var(--panel-gutter);
+  background: var(--bg-inset);
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm-size);
+  line-height: var(--text-sm-line);
+  color: var(--text-secondary);
+}
+
+.backlog-glyph {
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+}
+
+.backlog[data-alert],
+.backlog[data-ok] {
+  color: var(--text-primary);
+}
+
+.backlog[data-alert] .backlog-glyph {
+  color: var(--status-failed);
+}
+
+.backlog[data-ok] .backlog-glyph {
+  color: var(--status-ready);
+}
+
+.roster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gutter);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.courier {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
+}
+
+.courier-header {
+  display: flex;
+  align-items: center;
+  gap: var(--panel-gap);
+}
+
+.courier-name {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm-size);
+  font-weight: var(--text-caption-weight);
+  color: var(--text-primary);
+}
+
+.no-trips {
+  margin: 0;
+  padding-left: var(--panel-gap);
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  color: var(--text-tertiary);
+}
+
+.trips {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--panel-gutter);
+  height: var(--row-dense);
+  padding: 0 var(--panel-gap) 0 var(--panel-gutter);
+  border-bottom: var(--border-subtle) 1px solid;
+}
+
+.trip-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-size);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.trip-eta {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption-size);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.trip-eta[data-late] {
+  color: var(--status-late);
+}

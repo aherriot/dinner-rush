@@ -71,6 +71,11 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Public API, admin API and websocket fanout.",
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Order.rejection_reason and OrderStatusEvent.reason share REJECTION_REASONS
+    # choices; without this, drf-spectacular can't settle on one enum name for it.
+    "ENUM_NAME_OVERRIDES": {
+        "RejectionReasonEnum": "gateway.orders.models.REJECTION_REASONS",
+    },
 }
 
 ROOT_URLCONF = "gateway.urls"

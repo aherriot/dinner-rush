@@ -1,6 +1,32 @@
 {
   "components": {
     "schemas": {
+      "BacklogOut": {
+        "description": "`GET /backlog` \u2014 orders sitting in `pending_dropoff` with no `trip`\nrow yet: `ready` and waiting on an assignment the retry loop hasn't found\na courier for. Not visible anywhere else on the board; this is the number\nthat would have caught a stuck assignment loop immediately.",
+        "properties": {
+          "oldest_waiting_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Waiting Seconds"
+          },
+          "ready_count": {
+            "title": "Ready Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ready_count",
+          "oldest_waiting_seconds"
+        ],
+        "title": "BacklogOut",
+        "type": "object"
+      },
       "CourierOut": {
         "properties": {
           "id": {
@@ -322,6 +348,53 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/backlog": {
+      "get": {
+        "description": "Orders `dispatch.tasks.assign_order` hasn't matched to a courier yet:\na `pending_dropoff` row (written when `order.ready` arrives, ADR 0007 \u00a71)\nthat outlives assignment means the retry loop keeps failing to find one \u2014\nthe row is only ever deleted on a successful `attempt_assignment`\n(`dispatch.tasks.assign_order`). The `NOT EXISTS` against `trip` is\nbelt-and-suspenders for that invariant rather than the primary signal:\nevery surviving `pending_dropoff` row already implies no trip exists for\nits `order_id`.",
+        "operationId": "get_backlog_backlog_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklogOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Backlog"
+      }
+    },
     "/couriers": {
       "get": {
         "description": "`GET /couriers` (SPEC.md \u00a73.4) \u2014 status/metadata from Postgres, current\nposition from Redis, merged into one board-friendly shape.",

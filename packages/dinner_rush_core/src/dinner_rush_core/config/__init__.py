@@ -75,6 +75,7 @@ class DispatchConfig(BaseModel):
     max_trips_per_courier: int
     batch_max_detour_cells: int
     assignment_retry_seconds: int
+    max_assignment_retry_seconds: int
     address_grant_ttl_seconds: int
     eta_recalc_interval_seconds: int
 

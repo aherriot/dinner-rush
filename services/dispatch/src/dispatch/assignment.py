@@ -2,11 +2,14 @@
 light trip-batching heuristic, and the ETA/distance math the pricing formula
 and `courier.assigned` payload both need.
 
-Batching (ADR 0007 §3) is deliberately a detour-tolerance heuristic, not a
-routing optimizer: a courier already `assigned`/`delivering` with spare
-capacity (`max_trips_per_courier`) is preferred over waking an idle one, as
-long as diverting to the new pickup costs no more than
-`batch_max_detour_cells` — real multi-stop routing is out of scope (ADR
+An idle courier within `search_radius_cells` is always preferred over
+batching onto a busy one, even when the busy courier's detour is objectively
+cheaper — leaving a courier idle while orders wait is worse for the
+operation than a slightly longer trip. Batching (ADR 0007 §3) is a fallback
+for when no idle courier is in range: a courier already
+`assigned`/`delivering` with spare capacity (`max_trips_per_courier`) picks
+up the new order too, as long as diverting to the new pickup costs no more
+than `batch_max_detour_cells` — real multi-stop routing is out of scope (ADR
 0007 §3, CLAUDE.md §2's "timebox everything else hard").
 """
 
@@ -122,32 +125,29 @@ def attempt_assignment(
 
     dropoff_leg_cells = chebyshev(pickup_x, pickup_y, dropoff_x, dropoff_y)
 
-    batch = _batch_candidate(session, redis_client, pickup_x, pickup_y, config)
-    if batch is not None:
+    idle_ids = {
+        str(row)
+        for row in session.execute(select(Courier.id).where(Courier.status == "idle")).scalars()
+    }
+    nearby = nearest_within_radius(redis_client, pickup_x, pickup_y, config.search_radius_cells)
+    idle_candidate = next((c for c in nearby if c.courier_id in idle_ids), None)
+
+    if idle_candidate is not None:
+        found_courier = session.get(Courier, idle_candidate.courier_id)
+        assert found_courier is not None
+        courier = found_courier
+        from_x, from_y = idle_candidate.x, idle_candidate.y
+        pickup_leg_cells = idle_candidate.distance_cells
+    else:
+        batch = _batch_candidate(session, redis_client, pickup_x, pickup_y, config)
+        if batch is None:
+            return None
         courier, detour_cells = batch
         from_x, from_y = _last_planned_stop(session, courier.id, redis_client) or (
             pickup_x,
             pickup_y,
         )
         pickup_leg_cells = detour_cells
-    else:
-        idle_ids = {
-            str(row)
-            for row in session.execute(
-                select(Courier.id).where(Courier.status == "idle")
-            ).scalars()
-        }
-        nearby = nearest_within_radius(
-            redis_client, pickup_x, pickup_y, config.search_radius_cells
-        )
-        candidate = next((c for c in nearby if c.courier_id in idle_ids), None)
-        if candidate is None:
-            return None
-        found_courier = session.get(Courier, candidate.courier_id)
-        assert found_courier is not None
-        courier = found_courier
-        from_x, from_y = candidate.x, candidate.y
-        pickup_leg_cells = candidate.distance_cells
 
     distance_cells = pickup_leg_cells + dropoff_leg_cells
     eta_seconds = distance_cells / _speed_cells_per_second(courier) / speed

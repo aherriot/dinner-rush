@@ -38,6 +38,7 @@ def test_board_snapshot_200s_for_kitchen_and_manager(
     monkeypatch.setattr(board_views.kitchen_client, "get_ovens", lambda **kw: [])
     monkeypatch.setattr(board_views.dispatch_client, "get_trips", lambda **kw: [])
     monkeypatch.setattr(board_views.dispatch_client, "get_couriers", lambda **kw: [])
+    monkeypatch.setattr(board_views.dispatch_client, "get_backlog", lambda **kw: {})
 
     assert as_kitchen.get("/api/v1/board/snapshot").status_code == 200
     assert as_manager.get("/api/v1/board/snapshot").status_code == 200
@@ -58,6 +59,11 @@ def test_board_snapshot_includes_recent_orders_and_proxied_kitchen_dispatch_data
     monkeypatch.setattr(
         board_views.dispatch_client, "get_couriers", lambda **kw: [{"name": "Courier A"}]
     )
+    monkeypatch.setattr(
+        board_views.dispatch_client,
+        "get_backlog",
+        lambda **kw: {"ready_count": 3, "oldest_waiting_seconds": 912.5},
+    )
 
     response = as_manager.get("/api/v1/board/snapshot")
     assert response.status_code == 200
@@ -67,6 +73,7 @@ def test_board_snapshot_includes_recent_orders_and_proxied_kitchen_dispatch_data
     assert body["dispatch"] == {
         "trips": [{"code": "4471"}],
         "couriers": [{"name": "Courier A"}],
+        "backlog": {"ready_count": 3, "oldest_waiting_seconds": 912.5},
     }
 
 
@@ -77,12 +84,13 @@ def test_board_snapshot_degrades_to_null_sections_when_peers_are_unreachable(
     monkeypatch.setattr(board_views.kitchen_client, "get_ovens", lambda **kw: None)
     monkeypatch.setattr(board_views.dispatch_client, "get_trips", lambda **kw: None)
     monkeypatch.setattr(board_views.dispatch_client, "get_couriers", lambda **kw: None)
+    monkeypatch.setattr(board_views.dispatch_client, "get_backlog", lambda **kw: None)
 
     response = as_manager.get("/api/v1/board/snapshot")
     assert response.status_code == 200
     body = response.json()
     assert body["kitchen"] == {"queue": None, "ovens": None}
-    assert body["dispatch"] == {"trips": None, "couriers": None}
+    assert body["dispatch"] == {"trips": None, "couriers": None, "backlog": None}
 
 
 # -- POST /admin/ovens/{id}/status -------------------------------------------

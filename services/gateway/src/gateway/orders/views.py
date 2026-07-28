@@ -144,7 +144,12 @@ class OrderCreateView(APIView):
                 order.rejection_reason = reason
                 order.save()
                 OrderStatusEvent.objects.create(
-                    order=order, from_status="placed", to_status="rejected", event="reject"
+                    order=order,
+                    from_status="placed",
+                    to_status="rejected",
+                    event="reject",
+                    reason=reason,
+                    queue_depth=quote.queue_depth if quote else 0,
                 )
                 write_outbox_event(
                     build_envelope(

@@ -216,8 +216,17 @@ gotchas that don't show up just from reading DESIGN.md.
 ## 8. Definition of done, per phase
 
 A phase is complete when: its acceptance criterion in PHASES.md demonstrably
-passes, `make lint` and `make test` are green, new decisions have ADRs, and any
-new UI has Storybook stories including empty/loading/error.
+passes, `make lint`, `make test` and `make test-fe` are green, new decisions
+have ADRs, and any new UI has Storybook stories including empty/loading/error.
+
+**A new or changed Storybook story needs its Linux Playwright baseline
+committed, not just a green local run.** `make test-fe` compares against
+committed screenshots, and CI's `visual` job runs on Linux against the
+`-linux.png` set specifically — a macOS-only `pnpm run test:visual` pass
+proves nothing about what CI checks, and a missing `-linux.png` is a
+guaranteed CI failure regardless of whether the component renders correctly.
+See the `design-system` skill for the exact Docker incantation to generate
+them before opening the PR.
 
 Do not begin a phase before the previous one meets that bar. The failure mode
 for this project is a broad, shallow build that demos badly — the value is

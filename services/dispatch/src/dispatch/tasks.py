@@ -41,7 +41,7 @@ def try_assign(
     """Kick off an assignment attempt for `order_id` right away — called
     from `dispatch.consumers` when `order.ready` arrives."""
     assign_order.apply_async(
-        args=(str(order_id), code, dropoff_x, dropoff_y, line1, sequence, causation_id)
+        args=(str(order_id), code, dropoff_x, dropoff_y, line1, sequence, causation_id, 0)
     )
 
 
@@ -54,6 +54,7 @@ def assign_order(
     line1: str,
     sequence: int,
     causation_id: str | None,
+    attempt: int = 0,
 ) -> None:
     config = load_config().dispatch
     speed = _speed()
@@ -74,9 +75,31 @@ def assign_order(
         )
         if result is None:
             session.rollback()
+            # Capped exponential backoff, not the flat `assignment_retry_seconds`
+            # cadence — a permanently-unassignable order retrying every ~1s
+            # (scaled by SPEED) was observed to flood the worker badly enough
+            # that already-assigned trips' own scheduled ETA tasks
+            # (`arrive_at_pickup`/`arrive_at_dropoff`) starved and never ran,
+            # so couriers never returned to idle. attempt=0 keeps today's
+            # prompt retry for the common case (a courier frees up in the
+            # next few seconds); each subsequent miss doubles the wait, up to
+            # `max_assignment_retry_seconds`.
+            backoff_seconds = min(
+                config.assignment_retry_seconds * (2**attempt),
+                config.max_assignment_retry_seconds,
+            )
             assign_order.apply_async(
-                args=(order_id, code, dropoff_x, dropoff_y, line1, sequence, causation_id),
-                countdown=config.assignment_retry_seconds / speed,
+                args=(
+                    order_id,
+                    code,
+                    dropoff_x,
+                    dropoff_y,
+                    line1,
+                    sequence,
+                    causation_id,
+                    attempt + 1,
+                ),
+                countdown=backoff_seconds / speed,
             )
             return
 

@@ -5,6 +5,7 @@ import type { components } from "../../api/schema";
 import { OrderTimeline, type TimelineEvent } from "../../components/OrderTimeline/OrderTimeline";
 import { Panel } from "../../components/Panel/Panel";
 import { StatusPill } from "../../components/StatusPill/StatusPill";
+import { rejectionReasonLabel } from "../../design/rejectionReasons";
 import { Wordmark } from "../../design/Wordmark/Wordmark";
 import type { OrderStatus } from "../../design/tokens";
 import styles from "./OrderTracker.module.css";
@@ -112,7 +113,7 @@ export function OrderTracker() {
             <StatusPill status={order.status as OrderStatus} late={order.late} />
             <p className={styles.total}>${(order.total_cents / 100).toFixed(2)}</p>
             {order.rejection_reason && (
-              <p className={styles.reason}>Reason: {order.rejection_reason}</p>
+              <p className={styles.reason}>Reason: {rejectionReasonLabel(order.rejection_reason)}</p>
             )}
           </div>
         )}

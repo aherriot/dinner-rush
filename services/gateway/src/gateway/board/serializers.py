@@ -17,10 +17,14 @@ class KitchenSnapshotSerializer(serializers.Serializer[Any]):
 
 class DispatchSnapshotSerializer(serializers.Serializer[Any]):
     """Passthrough — same reasoning as `KitchenSnapshotSerializer`, for
-    dispatch's `TripOut`/`CourierOut`."""
+    dispatch's `TripOut`/`CourierOut`/`BacklogOut`."""
 
     trips = serializers.JSONField(allow_null=True)
     couriers = serializers.JSONField(allow_null=True)
+    #: `None` means dispatch didn't answer (`dispatch_client.get_backlog`'s
+    #: degrade-not-fail contract) — distinct from an empty backlog, which is
+    #: `{"ready_count": 0, "oldest_waiting_seconds": null}`.
+    backlog = serializers.JSONField(allow_null=True)
 
 
 class BoardSnapshotSerializer(serializers.Serializer[Any]):
