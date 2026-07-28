@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import psycopg
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from dinner_rush_core.config import load_config
@@ -24,7 +25,7 @@ from dispatch import settings
 from dispatch.consumers import HANDLERS
 from dispatch.db import SessionLocal
 from dispatch.dbapi import raw_cursor
-from dispatch.geo import set_position
+from dispatch.geo import COURIERS_GEO_KEY, set_position
 from dispatch.models import Courier
 from dispatch.redis_client import get_redis_client
 from dispatch.writer import OUTBOX_NOTIFY_CHANNEL
@@ -154,12 +155,37 @@ def run_seed() -> None:
         session.close()
 
 
+def run_reset() -> None:
+    """`make reset`'s dispatch half: clears trips, address grants and pending
+    dropoffs plus the event spine, and brings every courier back `idle` —
+    undoing a `courier_offline` scenario left active — without re-seeding.
+    Redis's `couriers:live` GEO key is dropped too: per `geo.py`'s own
+    docstring it isn't durable, and each courier just re-reports its position
+    on its next tick, so nothing needs restoring there by hand."""
+    session = SessionLocal()
+    redis_client = get_redis_client()
+    try:
+        session.execute(
+            text(
+                "TRUNCATE TABLE trip, address_grant, pending_dropoff, outbox, "
+                "processed_event RESTART IDENTITY CASCADE"
+            )
+        )
+        session.query(Courier).update({"status": "idle", "shift_started_at": datetime.now(UTC)})
+        session.commit()
+        redis_client.delete(COURIERS_GEO_KEY)
+        print("reset: trips and event spine cleared, couriers back idle", flush=True)
+    finally:
+        session.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="dispatch.cli")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("relay")
     sub.add_parser("seed")
+    sub.add_parser("reset")
 
     consumer_parser = sub.add_parser("stream_consumer")
     consumer_parser.add_argument("--group", required=True, choices=sorted(HANDLERS))
@@ -170,6 +196,8 @@ def main() -> None:
         run_relay()
     elif args.command == "seed":
         run_seed()
+    elif args.command == "reset":
+        run_reset()
     else:
         run_stream_consumer(args.group, args.consumer_name)
 

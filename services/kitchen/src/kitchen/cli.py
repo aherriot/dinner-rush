@@ -8,10 +8,12 @@ reused unmodified (ADR 0003).
 import argparse
 import socket
 import sys
+import time
 from collections.abc import Callable
 from typing import Any
 
 import psycopg
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from dinner_rush_core.config import load_config
@@ -24,7 +26,10 @@ from kitchen.consumers import HANDLERS
 from kitchen.db import SessionLocal
 from kitchen.dbapi import raw_cursor
 from kitchen.models import Oven, OvenSlot, Station
+from kitchen.reconcile import reconcile_stuck_tickets
 from kitchen.redis_client import get_redis_client
+from kitchen.slots import reap_stuck_slots
+from kitchen.speed import get_speed
 from kitchen.writer import OUTBOX_NOTIFY_CHANNEL
 
 STREAM = "events:order"  # kitchen only consumes order.accepted off this stream
@@ -144,12 +149,73 @@ def run_seed() -> None:
         session.close()
 
 
+def run_reset() -> None:
+    """`make reset`'s kitchen half: clears tickets and the event spine, and
+    un-claims every oven slot / restores oven and station status to
+    `available` — so a `chaos_scenario oven_down` left active doesn't survive
+    the reset. Ovens, slots and stations themselves are `seed`'s fixtures and
+    stay put; this only clears what a demo run accumulated on top of them."""
+    session = SessionLocal()
+    try:
+        session.execute(
+            text("TRUNCATE TABLE ticket, outbox, processed_event RESTART IDENTITY CASCADE")
+        )
+        session.query(OvenSlot).update({"order_id": None, "claimed_at": None, "frees_at": None})
+        session.query(Oven).update({"status": "available", "event_sequence": 0})
+        session.query(Station).update({"status": "available"})
+        session.commit()
+        print("reset: tickets and event spine cleared, oven slots un-claimed", flush=True)
+    finally:
+        session.close()
+
+
+def run_reap() -> None:
+    """The kitchen's crash-safety sweep — `slots.reap_stuck_slots` (a stuck
+    oven-slot claim outliving its own `frees_at`) and
+    `reconcile.reconcile_stuck_tickets` (a ticket whose next Celery step was
+    lost) were each written as idempotent, standalone functions but never
+    actually run anywhere; this loop is what closes that gap, on
+    `slot_reaper_interval_seconds`'s cadence for both."""
+    config = load_config()
+    interval = config.kitchen.slot_reaper_interval_seconds
+    slot_grace = config.kitchen.slot_reaper_grace_seconds
+    ticket_grace = config.kitchen.ticket_reconciler_grace_seconds
+
+    print(
+        f"reap: sweeping every {interval}s "
+        f"(slot grace {slot_grace}s, ticket grace {ticket_grace}s)",
+        flush=True,
+    )
+    while True:
+        session = SessionLocal()
+        try:
+            freed = reap_stuck_slots(session, slot_grace)
+            reconciled = reconcile_stuck_tickets(
+                session, grace_seconds=ticket_grace, speed=get_speed()
+            )
+            session.commit()
+        except Exception as exc:
+            print(f"reap: error, will retry — {exc}", file=sys.stderr)
+            session.rollback()
+            freed, reconciled = [], []
+        finally:
+            session.close()
+        if freed:
+            print(f"reap: reclaimed {len(freed)} stuck oven slot(s)", flush=True)
+        if reconciled:
+            codes = ", ".join(t.code for t in reconciled)
+            print(f"reap: resumed {len(reconciled)} stuck ticket(s) — {codes}", flush=True)
+        time.sleep(interval)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="kitchen.cli")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("relay")
     sub.add_parser("seed")
+    sub.add_parser("reset")
+    sub.add_parser("reap")
 
     consumer_parser = sub.add_parser("stream_consumer")
     consumer_parser.add_argument("--group", required=True, choices=sorted(HANDLERS))
@@ -160,6 +226,10 @@ def main() -> None:
         run_relay()
     elif args.command == "seed":
         run_seed()
+    elif args.command == "reset":
+        run_reset()
+    elif args.command == "reap":
+        run_reap()
     else:
         run_stream_consumer(args.group, args.consumer_name)
 

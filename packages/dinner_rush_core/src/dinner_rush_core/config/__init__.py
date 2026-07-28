@@ -137,6 +137,7 @@ class KitchenConfig(BaseModel):
     tick_interval_seconds: int
     slot_reaper_interval_seconds: int
     slot_reaper_grace_seconds: int
+    ticket_reconciler_grace_seconds: int
     capacity: CapacityConfig
 
 
