@@ -5,6 +5,12 @@ access token travels as `?token=`. `?last_event_id=` triggers a replay via
 `XRANGE` before the socket switches to live pushes fed by `cg:ws-fanout`
 (`handlers.handle_ws_fanout`) — refreshing mid-order misses nothing
 (DECISIONS.md §0003).
+
+`?last_event_id=` must be a genuine Redis stream id (`<ms>-<seq>`), not the
+envelope's own `event_id` (a business UUID, used for idempotency elsewhere,
+unrelated to stream position) — every message this consumer sends carries
+both under different names (`stream_id` vs the envelope's own `event_id`)
+specifically so the browser never conflates them when it echoes one back.
 """
 
 from typing import Any
@@ -12,6 +18,7 @@ from urllib.parse import parse_qs
 
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from redis.exceptions import ResponseError
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import AccessToken
 
@@ -58,7 +65,7 @@ class OrderTrackerConsumer(AsyncJsonWebsocketConsumer):
 
     async def order_event(self, message: dict[str, Any]) -> None:
         """Dispatched for `{"type": "order.event", ...}` group_sends."""
-        await self.send_json(message["envelope"])
+        await self.send_json({**message["envelope"], "stream_id": message["stream_id"]})
 
     @sync_to_async
     def _get_order(self, code: str) -> dict[str, str] | None:
@@ -69,10 +76,19 @@ class OrderTrackerConsumer(AsyncJsonWebsocketConsumer):
 
     async def _replay(self, order_id: str, last_event_id: str) -> None:
         client = get_redis_client()
-        messages = await sync_to_async(read_range)(client, STREAM, last_event_id)
+        try:
+            messages = await sync_to_async(read_range)(client, STREAM, last_event_id)
+        except ResponseError:
+            # `last_event_id` is client-controlled input over a WS query
+            # param — a malformed or stale value (e.g. sent before this
+            # fix shipped) shouldn't take the connection down; just skip
+            # the replay and let live fanout carry on from here.
+            return
         for message in messages:
             if str(message.envelope.aggregate_id) == order_id:
-                await self.send_json(message.envelope.model_dump(mode="json"))
+                await self.send_json(
+                    {**message.envelope.model_dump(mode="json"), "stream_id": message.message_id}
+                )
 
 
 def _authenticate(token: str | None) -> dict[str, str | None] | None:

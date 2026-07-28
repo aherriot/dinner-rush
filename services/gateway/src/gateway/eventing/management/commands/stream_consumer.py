@@ -54,7 +54,7 @@ class Command(BaseCommand):
             )
             for message in [*reclaimed, *fresh]:
                 try:
-                    handler(message.envelope)
+                    handler(message)
                 except Exception as exc:
                     self.stderr.write(f"stream_consumer[{group}]: error, will retry — {exc}")
                     continue
