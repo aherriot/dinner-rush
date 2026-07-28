@@ -4,3 +4,10 @@
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
 }
+
+.time {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption-size);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}

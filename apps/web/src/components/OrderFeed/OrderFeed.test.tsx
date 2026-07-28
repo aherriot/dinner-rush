@@ -1,19 +1,39 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 import { OrderFeed, type OrderFeedRow } from "./OrderFeed";
 
 const orders: OrderFeedRow[] = [
-  { code: "4471", status: "placed" },
-  { code: "4468", status: "rejected" },
+  { code: "4471", status: "placed", placedAgo: "12s ago" },
+  { code: "4468", status: "rejected", placedAgo: "5m ago" },
 ];
 
 describe("OrderFeed", () => {
-  it("renders every order's code and status", () => {
+  it("renders every order's code, status and placed-ago time", () => {
     render(<OrderFeed orders={orders} />);
     expect(screen.getByText("#4471")).toBeInTheDocument();
     expect(screen.getByText("#4468")).toBeInTheDocument();
-    expect(screen.getByText("Placed")).toBeInTheDocument();
-    expect(screen.getByText("Rejected")).toBeInTheDocument();
+    // "Placed" is ambiguous at the document level — it's both the "Placed"
+    // column header and the first row's status pill label — so these are
+    // scoped to their own row rather than a bare `getByText`.
+    const firstRow = screen.getByText("#4471").closest("tr")!;
+    const secondRow = screen.getByText("#4468").closest("tr")!;
+    expect(within(firstRow).getByText("Placed")).toBeInTheDocument();
+    expect(within(secondRow).getByText("Rejected")).toBeInTheDocument();
+    expect(within(firstRow).getByText("12s ago")).toBeInTheDocument();
+    expect(within(secondRow).getByText("5m ago")).toBeInTheDocument();
+  });
+
+  it("calls onSelect with the order code when a row is clicked", async () => {
+    const onSelect = vi.fn();
+    render(<OrderFeed orders={orders} onSelect={onSelect} />);
+    await userEvent.click(screen.getByText("#4471"));
+    expect(onSelect).toHaveBeenCalledWith("4471");
+  });
+
+  it("isn't clickable when onSelect is omitted", () => {
+    render(<OrderFeed orders={orders} />);
+    expect(screen.getByText("#4471").closest("tr")).not.toHaveAttribute("tabIndex");
   });
 
   it("renders the late modifier without recolouring the status", () => {

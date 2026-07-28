@@ -31,4 +31,10 @@ describe("Modal", () => {
     expect(onConfirm).toHaveBeenCalledOnce();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("omits the confirm/cancel row when hideActions is set", () => {
+    render(<Modal open onClose={vi.fn()} title="Order #4471" hideActions />);
+    expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+  });
 });

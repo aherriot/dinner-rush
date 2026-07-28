@@ -61,6 +61,15 @@
   background: var(--bg-raised);
 }
 
+.row[data-clickable] {
+  cursor: pointer;
+}
+
+.row[data-clickable]:hover,
+.row[data-clickable]:focus-visible {
+  background: var(--bg-raised);
+}
+
 .cell {
   padding: 0 var(--panel-gutter);
   color: var(--text-primary);

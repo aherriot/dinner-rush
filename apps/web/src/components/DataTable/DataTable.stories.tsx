@@ -74,3 +74,5 @@ export const Virtualised500Rows: Story = {
   name: "500-row virtualised",
   args: { rows: makeRows(500), virtualize: true, viewportHeightPx: 320 },
 };
+
+export const Clickable: Story = { args: { onRowClick: () => {} } };

@@ -5,7 +5,9 @@ import { useBoardAuth } from "../../auth/useBoardAuth";
 import { Button } from "../../components/Button/Button";
 import { DispatchPanel } from "../../components/DispatchPanel/DispatchPanel";
 import { KitchenPanel } from "../../components/KitchenPanel/KitchenPanel";
+import { OrderDrillIn } from "../../components/OrderDrillIn/OrderDrillIn";
 import { OrderFeed } from "../../components/OrderFeed/OrderFeed";
+import type { TimelineEvent } from "../../components/OrderTimeline/OrderTimeline";
 import { Panel } from "../../components/Panel/Panel";
 import {
   StatusBar,
@@ -23,6 +25,7 @@ import {
   mapTripLines,
   ordersPerMinute,
   toOrderFeedRows,
+  toTimelineEvent,
   type BoardOrder,
   type DispatchCourierRaw,
   type DispatchTripRaw,
@@ -197,6 +200,40 @@ function BoardDashboard() {
     resyncTimerRef.current = setTimeout(() => void fetchSnapshot(), RESYNC_DEBOUNCE_MS);
   }, [fetchSnapshot]);
 
+  // The order-feed drill-in (click a row for that order's full history).
+  // `drillInCodeRef` mirrors `drillInCode` into the live socket handler
+  // below without that handler needing to change identity on every open/
+  // close, the same ref-mirroring pattern `useBoardSocket` itself uses for
+  // its `onEvent` callback.
+  const [drillInCode, setDrillInCode] = useState<string | null>(null);
+  const [drillInEvents, setDrillInEvents] = useState<TimelineEvent[] | null>(null);
+  const [drillInFailed, setDrillInFailed] = useState(false);
+  const drillInCodeRef = useRef<string | null>(null);
+  useEffect(() => {
+    drillInCodeRef.current = drillInCode;
+  }, [drillInCode]);
+
+  useEffect(() => {
+    if (!drillInCode) return;
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting to "loading" for the order just opened, same as fetchSnapshot's own cold-load effect above
+    setDrillInEvents(null);
+    setDrillInFailed(false);
+    void api
+      .GET("/api/v1/orders/{code}/timeline", { params: { path: { code: drillInCode } } })
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (!data) {
+          setDrillInFailed(true);
+          return;
+        }
+        setDrillInEvents(data as TimelineEvent[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [drillInCode]);
+
   const handleBoardEvent = useCallback(
     (event: BoardEnvelope) => {
       setData((current) =>
@@ -208,6 +245,17 @@ function BoardDashboard() {
       // debounced re-fetch of the whole snapshot.
       if (event.stream === "events:oven" || event.stream === "events:courier") {
         debouncedResync();
+      }
+      // An open drill-in gets its live updates appended straight from the
+      // same board socket, rather than a second per-order socket like
+      // `OrderTracker`'s — the board is already subscribed to every order
+      // event, so filtering by code here is strictly cheaper.
+      const openCode = drillInCodeRef.current;
+      if (openCode) {
+        const timelineEvent = toTimelineEvent(event, openCode);
+        if (timelineEvent) {
+          setDrillInEvents((current) => (current ? [...current, timelineEvent] : current));
+        }
       }
     },
     [debouncedResync],
@@ -246,7 +294,11 @@ function BoardDashboard() {
     <div className={styles.page} data-theme="dark">
       <div className={styles.grid}>
         <div className={styles["order-feed"]}>
-          <OrderFeed orders={toOrderFeedRows(orders)} state={data === null ? "loading" : "idle"} />
+          <OrderFeed
+            orders={toOrderFeedRows(orders, now)}
+            state={data === null ? "loading" : "idle"}
+            onSelect={setDrillInCode}
+          />
         </div>
         <div className={styles.kitchen}>
           <KitchenPanel
@@ -279,6 +331,13 @@ function BoardDashboard() {
           />
         </div>
       </div>
+      <OrderDrillIn
+        code={drillInCode}
+        events={drillInEvents ?? undefined}
+        state={drillInFailed ? "error" : drillInEvents === null ? "loading" : "idle"}
+        errorMessage="Couldn't load this order's timeline."
+        onClose={() => setDrillInCode(null)}
+      />
     </div>
   );
 }

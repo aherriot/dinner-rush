@@ -9,7 +9,7 @@
   grid-template:
     "order-feed kitchen dispatch" 1fr
     "status-bar status-bar status-bar" 56px
-    / 280px 1fr 380px;
+    / 340px 1fr 380px;
   gap: var(--panel-gap);
   height: calc(100vh - (var(--panel-gutter) * 2));
 }

@@ -13,6 +13,10 @@ export interface ModalProps {
   cancelLabel?: string;
   onConfirm?: () => void;
   destructive?: boolean;
+  /** Omits the confirm/cancel row entirely, for a read-only modal (e.g. the
+   * board's order drill-in) that has nothing to confirm — Headless UI's
+   * `Dialog` already closes on `Escape`/backdrop click via `onClose`. */
+  hideActions?: boolean;
 }
 
 /** Token-styled wrapper around Headless UI's Dialog — see DESIGN.md §7. */
@@ -26,6 +30,7 @@ export function Modal({
   cancelLabel = "Cancel",
   onConfirm,
   destructive = false,
+  hideActions = false,
 }: ModalProps) {
   return (
     <Dialog open={open} onClose={onClose} transition>
@@ -35,14 +40,16 @@ export function Modal({
           <DialogTitle className={styles.title}>{title}</DialogTitle>
           {description && <Description className={styles.description}>{description}</Description>}
           {children}
-          <div className={styles.actions}>
-            <Button variant="ghost" onClick={onClose}>
-              {cancelLabel}
-            </Button>
-            <Button variant={destructive ? "danger" : "primary"} onClick={onConfirm ?? onClose}>
-              {confirmLabel}
-            </Button>
-          </div>
+          {!hideActions && (
+            <div className={styles.actions}>
+              <Button variant="ghost" onClick={onClose}>
+                {cancelLabel}
+              </Button>
+              <Button variant={destructive ? "danger" : "primary"} onClick={onConfirm ?? onClose}>
+                {confirmLabel}
+              </Button>
+            </div>
+          )}
         </DialogPanel>
       </div>
     </Dialog>
