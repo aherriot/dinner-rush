@@ -108,14 +108,29 @@
 
 .menu-items {
   position: absolute;
-  top: 100%;
-  left: 0;
   z-index: 10;
-  margin-top: var(--panel-gap);
   min-width: 180px;
   border-radius: var(--radius);
   border: var(--border-strong) 1px solid;
   background: var(--bg-raised);
+}
+
+.menu-items[data-placement="bottom"] {
+  top: 100%;
+  margin-top: var(--panel-gap);
+}
+
+.menu-items[data-align="start"] {
+  left: 0;
+}
+
+.menu-items[data-align="end"] {
+  right: 0;
+}
+
+.menu-items[data-placement="top"] {
+  bottom: 100%;
+  margin-bottom: var(--panel-gap);
 }
 
 .menu-items:focus-visible,
@@ -125,8 +140,11 @@
 }
 
 .menu-item {
+  all: unset;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
+  width: 100%;
   height: var(--row-default);
   padding: 0 var(--panel-gutter);
   font-family: var(--font-ui);

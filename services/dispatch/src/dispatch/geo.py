@@ -57,6 +57,25 @@ def get_position(client: "Redis", courier_id: str) -> tuple[int, int] | None:
     return _to_grid(float(lon), float(lat))
 
 
+def get_positions(client: "Redis", courier_ids: list[str]) -> dict[str, tuple[int, int]]:
+    """Bulk variant of `get_position` — one Redis round trip for the whole
+    board's courier list rather than one `GEOPOS` per courier (SPEC.md §3.4's
+    `GET /couriers`, "positions live in Redis; this is status/metadata
+    only"). A courier absent from the result hasn't reported a position yet
+    (e.g. never gone online) — the caller renders it unplaced, not as an
+    error."""
+    if not courier_ids:
+        return {}
+    raw = client.geopos(COURIERS_GEO_KEY, *courier_ids)
+    coords = cast(list[tuple[float, float] | None], raw)
+    positions: dict[str, tuple[int, int]] = {}
+    for courier_id, coord in zip(courier_ids, coords, strict=True):
+        if coord is not None:
+            lon, lat = coord
+            positions[courier_id] = _to_grid(float(lon), float(lat))
+    return positions
+
+
 @dataclass(frozen=True)
 class NearbyCourier:
     courier_id: str

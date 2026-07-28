@@ -10,7 +10,7 @@ from dinner_rush_core.auth import Claims
 from kitchen.auth import get_claims
 from kitchen.db import get_session
 from kitchen.main import app
-from kitchen.models import Oven, OvenSlot, Ticket
+from kitchen.models import Outbox, Oven, OvenSlot, Ticket
 
 _FULL_ACCESS_CLAIMS = Claims(
     sub="gateway",
@@ -209,4 +209,68 @@ def test_tickets_advance_rejects_an_illegal_transition(
 
 def test_tickets_advance_404s_for_an_unknown_ticket(client: TestClient) -> None:
     response = client.post(f"/tickets/{uuid.uuid4()}/advance", json={"event": "start_prep"})
+    assert response.status_code == 404
+
+
+def test_oven_status_down_flips_status_and_emits_event(
+    session: Session, client: TestClient
+) -> None:
+    oven = Oven(name="Oven 3", slot_count=4, status="available")
+    session.add(oven)
+    session.commit()
+
+    response = client.post(f"/ovens/{oven.id}/status", json={"status": "down"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "down"
+
+    session.expire_all()
+    refreshed = session.get(Oven, oven.id)
+    assert refreshed is not None
+    assert refreshed.status == "down"
+    assert refreshed.event_sequence == 1
+
+    [outbox_row] = session.query(Outbox).all()
+    assert outbox_row.envelope["event_type"] == "oven.down"
+    assert outbox_row.envelope["aggregate_id"] == str(oven.id)
+    assert outbox_row.envelope["sequence"] == 1
+    assert outbox_row.envelope["payload"] == {"oven_id": str(oven.id), "slot_count": 4}
+
+
+def test_oven_status_restored_after_down_emits_oven_restored(
+    session: Session, client: TestClient
+) -> None:
+    oven = Oven(name="Oven 3", slot_count=4, status="down", event_sequence=1)
+    session.add(oven)
+    session.commit()
+
+    response = client.post(f"/ovens/{oven.id}/status", json={"status": "available"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "available"
+
+    [outbox_row] = session.query(Outbox).all()
+    assert outbox_row.envelope["event_type"] == "oven.restored"
+    assert outbox_row.envelope["sequence"] == 2
+
+
+def test_oven_status_repeated_call_is_a_no_op(session: Session, client: TestClient) -> None:
+    oven = Oven(name="Oven 3", slot_count=4, status="down", event_sequence=1)
+    session.add(oven)
+    session.commit()
+
+    response = client.post(f"/ovens/{oven.id}/status", json={"status": "down"})
+    assert response.status_code == 200
+    assert session.query(Outbox).count() == 0
+
+
+def test_oven_status_rejects_an_unknown_status_value(session: Session, client: TestClient) -> None:
+    oven = Oven(name="Oven 3", slot_count=4, status="available")
+    session.add(oven)
+    session.commit()
+
+    response = client.post(f"/ovens/{oven.id}/status", json={"status": "on_fire"})
+    assert response.status_code == 422
+
+
+def test_oven_status_404s_for_an_unknown_oven(client: TestClient) -> None:
+    response = client.post(f"/ovens/{uuid.uuid4()}/status", json={"status": "down"})
     assert response.status_code == 404

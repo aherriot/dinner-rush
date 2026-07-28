@@ -9,7 +9,7 @@ from dinner_rush_core.auth import Claims
 from dispatch.api_models import CourierOut, CourierPositionRequest, CourierStatusRequest, TripOut
 from dispatch.auth import require_courier, require_service_scope
 from dispatch.db import get_session
-from dispatch.geo import get_position, set_position
+from dispatch.geo import get_position, get_positions, set_position
 from dispatch.models import Courier, Trip
 from dispatch.redis_client import get_redis_client
 from dispatch.tasks import handle_courier_offline
@@ -25,10 +25,27 @@ def _own_courier_or_403(courier_id: uuid.UUID, claims: Claims) -> None:
 
 
 @board_router.get("/couriers", response_model=list[CourierOut])
-def list_couriers(session: Session = Depends(get_session)) -> list[Courier]:
-    """`GET /couriers` (SPEC.md §3.4) — positions live in Redis; this is
-    status/metadata only, same split as oven state in kitchen's `/ovens`."""
-    return list(session.execute(select(Courier)).scalars().all())
+def list_couriers(session: Session = Depends(get_session)) -> list[CourierOut]:
+    """`GET /couriers` (SPEC.md §3.4) — status/metadata from Postgres, current
+    position from Redis, merged into one board-friendly shape."""
+    couriers = list(session.execute(select(Courier)).scalars().all())
+    positions = get_positions(get_redis_client(), [str(c.id) for c in couriers])
+
+    def _out(courier: Courier) -> CourierOut:
+        position = positions.get(str(courier.id))
+        x, y = position if position is not None else (None, None)
+        return CourierOut(
+            id=courier.id,
+            name=courier.name,
+            status=courier.status,
+            vehicle=courier.vehicle,
+            speed_cells_per_min=courier.speed_cells_per_min,
+            shift_started_at=courier.shift_started_at,
+            x=x,
+            y=y,
+        )
+
+    return [_out(c) for c in couriers]
 
 
 @courier_router.post("/couriers/{courier_id}/status", response_model=CourierOut)

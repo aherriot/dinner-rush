@@ -166,6 +166,19 @@
         "title": "OvenSlotOut",
         "type": "object"
       },
+      "OvenStatusUpdateRequest": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "OvenStatusUpdateRequest",
+        "type": "object"
+      },
       "TicketAdvanceRequest": {
         "properties": {
           "event": {
@@ -462,6 +475,73 @@
           }
         },
         "summary": "Get Ovens"
+      }
+    },
+    "/ovens/{oven_id}/status": {
+      "post": {
+        "description": "`POST /admin/ovens/{id}/status` (SPEC.md \u00a73.2), reached via gateway's\nproxy \u2014 the chaos \"oven down\" scenario's write path.\n\nEmits `oven.down`/`oven.restored` (SPEC.md \u00a74) through kitchen's own\noutbox in the same transaction as the status flip, so the board's oven\ngrid repaints from the same event spine as everything else rather than\nfrom a side-channel poll. A repeated call with the status unchanged is a\nno-op \u2014 it does not re-emit, since that would be a duplicate state\ntransition rather than a genuine one.",
+        "operationId": "set_oven_status_ovens__oven_id__status_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "oven_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Oven Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OvenStatusUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OvenOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Oven Status"
       }
     },
     "/queue": {

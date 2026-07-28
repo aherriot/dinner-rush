@@ -21,6 +21,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/ovens/{oven_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description `POST /admin/ovens/{id}/status` (SPEC.md §3.2) — manager only. Proxies
+         *     to kitchen's write endpoint via a minted service token; the oven-down
+         *     chaos button's write path.
+         */
+        post: operations["v1_admin_ovens_status_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/scenarios/{name}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description `POST /admin/scenarios/{name}/start` (SPEC.md §3.2) — manager only.
+         *
+         *     Override-driven scenarios (`friday_rush`, `courier_offline`) write their
+         *     parameter deltas to Redis with a wall-clock TTL for the simulator to
+         *     poll (`GET /scenarios/active`). Action-driven scenarios (`oven_down`,
+         *     `ingredient_shortage`) instead execute their `at_seconds: 0` actions
+         *     immediately — the revert actions run on `.../stop`. `dispatch_down` has
+         *     no `overrides`/`actions` in config at all (it's `manual:`) and is
+         *     rejected here on purpose; it stays a `docker compose stop dispatch` demo
+         *     step, not a button.
+         */
+        post: operations["v1_admin_scenarios_start_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/scenarios/{name}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description `POST /admin/scenarios/{name}/stop` (SPEC.md §3.2) — manager only.
+         *     Clears any Redis override early and runs the scenario's revert actions
+         *     (the `at_seconds > 0` entries) immediately rather than waiting out
+         *     `duration_seconds`.
+         */
+        post: operations["v1_admin_scenarios_stop_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/speed": {
         parameters: {
             query?: never;
@@ -56,6 +127,29 @@ export interface paths {
          *     has no credentials of its own (SPEC.md §1.1); see ADR 0002.
          */
         post: operations["v1_auth_token_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/board/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description `GET /board/snapshot` — kitchen/manager only. Kitchen/dispatch
+         *     sections are `None` when that service didn't answer: a degraded panel,
+         *     not a failed request — the same "keep gateway working when a peer
+         *     isn't" story as order acceptance's capacity-quote fallback, and the
+         *     whole point of Streams over pub/sub for Phase 10's recovery demo.
+         */
+        get: operations["v1_board_snapshot_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -149,6 +243,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/scenarios/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description `GET /scenarios/active` — public, unauthenticated, mirrors
+         *     `accounts.views.SpeedView`: the simulator has no service credentials and
+         *     no privileged scope (CLAUDE.md §5), so a public poll is the only channel
+         *     it has to learn which overrides currently apply.
+         */
+        get: operations["v1_scenarios_active_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/speed": {
         parameters: {
             query?: never;
@@ -191,6 +307,12 @@ export interface components {
         };
         /** @enum {unknown} */
         BlankEnum: "";
+        /** @description `GET /board/snapshot` (SPEC.md §3.1) — the board's cold-load state. */
+        BoardSnapshot: {
+            orders: components["schemas"]["Order"][];
+            kitchen: components["schemas"]["KitchenSnapshot"];
+            dispatch: components["schemas"]["DispatchSnapshot"];
+        };
         Customer: {
             /** Format: uuid */
             readonly id: string;
@@ -199,6 +321,24 @@ export interface components {
             email: string;
             phone?: string;
             readonly addresses: components["schemas"]["Address"][];
+        };
+        /**
+         * @description Passthrough — same reasoning as `KitchenSnapshotSerializer`, for
+         *     dispatch's `TripOut`/`CourierOut`.
+         */
+        DispatchSnapshot: {
+            trips: unknown;
+            couriers: unknown;
+        };
+        /**
+         * @description Passthrough — kitchen's own `TicketOut`/`OvenOut` (FastAPI/Pydantic)
+         *     are already the wire shape the board wants; gateway doesn't re-model
+         *     them. `None` means kitchen didn't answer (`kitchen_client.get_queue`/
+         *     `get_ovens`'s degrade-not-fail contract), not an empty result.
+         */
+        KitchenSnapshot: {
+            queue: unknown;
+            ovens: unknown;
         };
         MenuAvailability: {
             available: boolean;
@@ -223,7 +363,7 @@ export interface components {
             /** Format: uuid */
             readonly id: string;
             code: string;
-            status?: components["schemas"]["StatusEnum"];
+            status?: components["schemas"]["OrderStatusEnum"];
             subtotal_cents: number;
             delivery_fee_cents: number;
             total_cents: number;
@@ -262,29 +402,6 @@ export interface components {
             sku: string;
             qty: number;
         };
-        OrderStatusEvent: {
-            from_status?: string | null;
-            to_status: string;
-            event: string;
-            /** Format: date-time */
-            readonly occurred_at: string;
-        };
-        /**
-         * @description * `at_capacity` - at_capacity
-         *     * `item_unavailable` - item_unavailable
-         *     * `outside_range` - outside_range
-         * @enum {string}
-         */
-        RejectionReasonEnum: "at_capacity" | "item_unavailable" | "outside_range";
-        Speed: {
-            speed: number;
-        };
-        /**
-         * @description * `prep` - prep
-         *     * `assembly` - assembly
-         * @enum {string}
-         */
-        StationEnum: "prep" | "assembly";
         /**
          * @description * `accepted` - accepted
          *     * `assigned` - assigned
@@ -301,7 +418,49 @@ export interface components {
          *     * `rejected` - rejected
          * @enum {string}
          */
-        StatusEnum: "accepted" | "assigned" | "baking" | "boxed" | "delivered" | "delivering" | "failed" | "picked_up" | "placed" | "prepping" | "queued" | "ready" | "rejected";
+        OrderStatusEnum: "accepted" | "assigned" | "baking" | "boxed" | "delivered" | "delivering" | "failed" | "picked_up" | "placed" | "prepping" | "queued" | "ready" | "rejected";
+        OrderStatusEvent: {
+            from_status?: string | null;
+            to_status: string;
+            event: string;
+            /** Format: date-time */
+            readonly occurred_at: string;
+        };
+        OvenStatus: {
+            status: components["schemas"]["OvenStatusStatusEnum"];
+        };
+        /**
+         * @description * `available` - available
+         *     * `down` - down
+         * @enum {string}
+         */
+        OvenStatusStatusEnum: "available" | "down";
+        /**
+         * @description * `at_capacity` - at_capacity
+         *     * `item_unavailable` - item_unavailable
+         *     * `outside_range` - outside_range
+         * @enum {string}
+         */
+        RejectionReasonEnum: "at_capacity" | "item_unavailable" | "outside_range";
+        ScenarioToggle: {
+            scenario: string;
+            active: boolean;
+            overrides: unknown;
+            actions_applied: unknown;
+        };
+        ScenariosActive: {
+            overrides: unknown;
+            scenarios: string[];
+        };
+        Speed: {
+            speed: number;
+        };
+        /**
+         * @description * `prep` - prep
+         *     * `assembly` - assembly
+         * @enum {string}
+         */
+        StationEnum: "prep" | "assembly";
         /**
          * @description Schema-only shape for `POST /auth/token` — either `{email}` (customer)
          *     or `{username, password}` (staff); `TokenView` validates the real branch
@@ -353,6 +512,75 @@ export interface operations {
             };
         };
     };
+    v1_admin_ovens_status_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oven_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OvenStatus"];
+                "application/x-www-form-urlencoded": components["schemas"]["OvenStatus"];
+                "multipart/form-data": components["schemas"]["OvenStatus"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OvenStatus"];
+                };
+            };
+        };
+    };
+    v1_admin_scenarios_start_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioToggle"];
+                };
+            };
+        };
+    };
+    v1_admin_scenarios_stop_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioToggle"];
+                };
+            };
+        };
+    };
     v1_admin_speed_create: {
         parameters: {
             query?: never;
@@ -399,6 +627,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+        };
+    };
+    v1_board_snapshot_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardSnapshot"];
                 };
             };
         };
@@ -514,6 +761,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrderStatusEvent"][];
+                };
+            };
+        };
+    };
+    v1_scenarios_active_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenariosActive"];
                 };
             };
         };

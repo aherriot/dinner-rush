@@ -1,0 +1,61 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gutter);
+  height: 100%;
+}
+
+.map {
+  position: relative;
+  flex: 1;
+  min-height: 240px;
+  background: var(--bg-inset);
+  border: var(--border-subtle) 1px solid;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.trip-line {
+  stroke: var(--courier-active);
+}
+
+.restaurant {
+  fill: var(--accent);
+}
+
+.pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--panel-gutter);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--panel-gap);
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  color: var(--text-secondary);
+}
+
+.legend-restaurant {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+}

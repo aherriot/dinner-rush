@@ -1,0 +1,68 @@
+/* No overflow clipping on .bar, on purpose — the Chaos ActionMenu's dropdown
+   (`placement="top"`) has to render above this bar's own bounds, and
+   `overflow-x: auto` alone forces `overflow-y` to compute as `auto` too (not
+   `visible`), which would clip it. The board isn't a mobile surface
+   (DESIGN.md §10), so there's no narrow-viewport case this bar itself needs
+   to scroll for. */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--panel-gutter);
+  height: 56px;
+  padding: 0 var(--panel-gutter);
+  background: var(--bg-panel);
+  border: var(--border-subtle) 1px solid;
+  border-radius: var(--radius-lg);
+}
+
+.section {
+  display: flex;
+  align-items: center;
+  gap: var(--panel-gutter);
+  flex-shrink: 0;
+}
+
+.chaos {
+  margin-left: auto;
+}
+
+.clock {
+  font-family: var(--font-mono);
+  font-size: var(--metric-sm-size);
+  line-height: var(--metric-sm-line);
+  font-weight: var(--metric-sm-weight);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.connection-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--status-failed);
+}
+
+.connection-dot[data-connected] {
+  background: var(--status-ready);
+}
+
+.active-chip {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--panel-gap);
+  padding: var(--panel-gap) var(--panel-gutter);
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  color: var(--text-primary);
+  background: var(--bg-raised);
+  border: var(--border-strong) 1px solid;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.active-chip:hover {
+  border-color: var(--accent);
+}

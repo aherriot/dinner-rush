@@ -31,6 +31,7 @@ from channels.layers import get_channel_layer
 from django.db import connection, transaction
 from django.utils import timezone
 
+from dinner_rush_core.events.catalogue import stream_for
 from dinner_rush_core.events.envelope import EventEnvelope
 from dinner_rush_core.outbox import mark_processed_or_skip
 from dinner_rush_core.streams import StreamMessage
@@ -41,6 +42,7 @@ from gateway.orders.models import Order, OrderStatusEvent
 CONSUMER_GROUP_ANALYTICS = "cg:analytics"
 CONSUMER_GROUP_WS_FANOUT = "cg:ws-fanout"
 CONSUMER_GROUP_ORDER_SYNC = "cg:order-sync"
+CONSUMER_GROUP_WS_BOARD_FANOUT = "cg:ws-board-fanout"
 
 # Kitchen's event types map onto the FSM event name (for the timeline) and
 # the resulting status. This sets `status` directly rather than routing
@@ -100,6 +102,27 @@ def handle_ws_fanout(message: StreamMessage) -> None:
     )
 
 
+def handle_board_fanout(message: StreamMessage) -> None:
+    """Same `stream_id`-vs-`event_id` reasoning as `handle_ws_fanout`, but
+    `group_send`s to the single fixed `"board"` group instead of a
+    per-order one — there's one board, not one per aggregate. `stream` is
+    derived from the catalogue rather than passed in, so it's correct
+    regardless of which of the three `stream_consumer` processes (one per
+    stream, same group name) happened to receive this message."""
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+    async_to_sync(channel_layer.group_send)(
+        "board",
+        {
+            "type": "board.event",
+            "envelope": message.envelope.model_dump(mode="json"),
+            "stream_id": message.message_id,
+            "stream": stream_for(message.envelope.event_type),
+        },
+    )
+
+
 def handle_order_sync(envelope: EventEnvelope) -> None:
     transition = _EVENT_TYPE_TO_TRANSITION.get(envelope.event_type)
     if transition is None:
@@ -131,4 +154,5 @@ HANDLERS: dict[str, Callable[[StreamMessage], None]] = {
     CONSUMER_GROUP_ANALYTICS: lambda message: handle_analytics(message.envelope),
     CONSUMER_GROUP_WS_FANOUT: handle_ws_fanout,
     CONSUMER_GROUP_ORDER_SYNC: lambda message: handle_order_sync(message.envelope),
+    CONSUMER_GROUP_WS_BOARD_FANOUT: handle_board_fanout,
 }

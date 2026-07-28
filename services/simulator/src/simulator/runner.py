@@ -10,6 +10,7 @@ import contextlib
 from simulator.arrivals import poisson_arrivals
 from simulator.client.api import GatewayClient
 from simulator.config import CustomersConfig
+from simulator.scenario_overrides import ScenarioOverrideTracker
 from simulator.session import Simulation
 from simulator.speed import SpeedTracker
 from simulator.stats import Stats, print_periodically
@@ -31,7 +32,8 @@ async def run(
     """
     stats = Stats()
     speed = SpeedTracker(client)
-    simulation = Simulation(client, config, speed, stats)
+    scenario_overrides = ScenarioOverrideTracker(client)
+    simulation = Simulation(client, config, speed, stats, scenario_overrides=scenario_overrides)
     await simulation.load_menu()
 
     session_tasks: set[asyncio.Task[None]] = set()
@@ -43,12 +45,14 @@ async def run(
 
     async def _drive_arrivals() -> None:
         arrivals = poisson_arrivals(
-            lambda: config.baseline_rate_per_minute, speed=lambda: speed.current
+            lambda: scenario_overrides.current_rate_per_minute(config.baseline_rate_per_minute),
+            speed=lambda: speed.current,
         )
         async for _ in arrivals:
             _spawn_session()
 
     speed_task = asyncio.create_task(speed.run_forever())
+    scenario_overrides_task = asyncio.create_task(scenario_overrides.run_forever())
     stats_task = asyncio.create_task(print_periodically(stats))
     arrivals_task = asyncio.create_task(_drive_arrivals())
 
@@ -60,7 +64,7 @@ async def run(
 
     await asyncio.wait(stop_waiters, return_when=asyncio.FIRST_COMPLETED)
 
-    all_tasks = [arrivals_task, speed_task, stats_task, *stop_waiters]
+    all_tasks = [arrivals_task, speed_task, scenario_overrides_task, stats_task, *stop_waiters]
     for task in all_tasks:
         task.cancel()
     if session_tasks:

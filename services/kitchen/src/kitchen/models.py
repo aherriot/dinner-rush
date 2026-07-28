@@ -35,6 +35,11 @@ class Oven(Base):
     name: Mapped[str]
     slot_count: Mapped[int] = mapped_column(SmallInteger)
     status: Mapped[str] = mapped_column(default="available")  # available | down
+    #: Per-aggregate monotonic counter for this oven's own `oven.down`/
+    #: `oven.restored` chain (EventEnvelope.sequence, DECISIONS.md §0004) —
+    #: unlike order/ticket events, an oven has no upstream causation chain to
+    #: thread a sequence through, so it keeps its own running count.
+    event_sequence: Mapped[int] = mapped_column(default=0)
 
     slots: Mapped[list["OvenSlot"]] = relationship(
         back_populates="oven", order_by="OvenSlot.slot_index"

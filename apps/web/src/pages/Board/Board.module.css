@@ -1,0 +1,118 @@
+.page {
+  min-height: 100vh;
+  background: var(--bg-base);
+  padding: var(--panel-gutter);
+}
+
+.grid {
+  display: grid;
+  grid-template:
+    "order-feed kitchen dispatch" 1fr
+    "status-bar status-bar status-bar" 56px
+    / 280px 1fr 380px;
+  gap: var(--panel-gap);
+  height: calc(100vh - (var(--panel-gutter) * 2));
+}
+
+.order-feed {
+  grid-area: order-feed;
+  min-height: 0;
+}
+
+.kitchen {
+  grid-area: kitchen;
+  min-height: 0;
+}
+
+.dispatch {
+  grid-area: dispatch;
+  min-height: 0;
+}
+
+.order-feed > section,
+.kitchen > section,
+.dispatch > section {
+  height: 100%;
+}
+
+.status-bar {
+  grid-area: status-bar;
+}
+
+/* The board is not a mobile surface (DESIGN.md §10) — below 1100px the
+   three panels stack and the status bar stays reachable at the bottom
+   rather than pretending to be a responsive consumer layout. */
+@media (width <= 1100px) {
+  .grid {
+    grid-template:
+      "order-feed" minmax(240px, auto)
+      "kitchen" minmax(240px, auto)
+      "dispatch" minmax(240px, auto)
+      "status-bar" 56px
+      / 1fr;
+    height: auto;
+  }
+
+  .status-bar {
+    position: sticky;
+    bottom: 0;
+  }
+}
+
+.login-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--panel-gutter);
+  max-width: 360px;
+  margin: var(--panel-gutter) auto;
+  padding-top: var(--panel-gutter);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gutter);
+}
+
+.login-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gap);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm-size);
+  color: var(--text-secondary);
+}
+
+.login-input {
+  all: unset;
+  box-sizing: border-box;
+  padding: var(--panel-gap) var(--panel-gutter);
+  background: var(--bg-inset);
+  border: var(--border-strong) 1px solid;
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-body-size);
+}
+
+.login-input:focus-visible {
+  border-color: var(--border-focus);
+}
+
+.login-error {
+  color: var(--status-failed);
+  font-size: var(--text-sm-size);
+}
+
+.hint {
+  color: var(--text-tertiary);
+  font-size: var(--text-caption-size);
+}
+
+.error-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(100vh - (var(--panel-gutter) * 2));
+}
