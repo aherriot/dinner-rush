@@ -5,7 +5,7 @@ description = "Root workspace — not published, not installed"
 requires-python = ">=3.13"
 
 [tool.uv.workspace]
-members = ["packages/dinner_rush_core", "services/gateway", "services/kitchen", "services/simulator"]
+members = ["packages/dinner_rush_core", "services/gateway", "services/kitchen", "services/dispatch", "services/simulator"]
 
 [dependency-groups]
 dev = [
@@ -28,6 +28,7 @@ src = [
     "packages/dinner_rush_core/src",
     "services/gateway/src",
     "services/kitchen/src",
+    "services/dispatch/src",
     "services/simulator/src",
 ]
 extend-exclude = [
@@ -46,7 +47,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["dinner_rush_core", "gateway", "kitchen", "simulator"]
+known-first-party = ["dinner_rush_core", "gateway", "kitchen", "dispatch", "simulator"]
 
 [tool.mypy]
 python_version = "3.13"
@@ -55,12 +56,14 @@ mypy_path = [
     "packages/dinner_rush_core/src",
     "services/gateway/src",
     "services/kitchen/src",
+    "services/dispatch/src",
     "services/simulator/src",
 ]
 files = [
     "packages/dinner_rush_core/src",
     "services/gateway/src",
     "services/kitchen/src",
+    "services/dispatch/src",
     "services/simulator/src",
 ]
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
@@ -81,6 +84,10 @@ module = "kitchen.alembic.versions.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
+module = "dispatch.alembic.versions.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
 module = "simulator.client.models"
 ignore_errors = true
 
@@ -88,6 +95,7 @@ ignore_errors = true
 testpaths = [
     "services/gateway/tests",
     "services/kitchen/tests",
+    "services/dispatch/tests",
     "services/simulator/tests",
     "packages/dinner_rush_core/tests",
 ]

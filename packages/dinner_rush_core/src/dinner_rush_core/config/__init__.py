@@ -50,10 +50,33 @@ class RestaurantConfig(BaseModel):
     y: int
 
 
+class GridConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    width: int
+    height: int
+
+
+class CourierSpeedConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    bike: float
+    scooter: float
+
+
 class DispatchConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
+    grid: GridConfig
     restaurant: RestaurantConfig
+    courier_count: int
+    courier_speed_cells_per_minute: CourierSpeedConfig
+    search_radius_cells: int
+    max_trips_per_courier: int
+    batch_max_detour_cells: int
+    assignment_retry_seconds: int
+    address_grant_ttl_seconds: int
+    eta_recalc_interval_seconds: int
 
 
 class ServiceClientConfig(BaseModel):
