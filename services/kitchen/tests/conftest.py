@@ -1,16 +1,57 @@
-from collections.abc import Iterator
+import os
 
-import pytest
-from sqlalchemy import text
-from sqlalchemy.orm import Session
+# Test-isolation safety net — must run before anything under `kitchen` is
+# imported. `KITCHEN_POSTGRES_DB` defaults to the exact same database name
+# the live service uses (`kitchen`), and this session's `_schema` fixture
+# below ends with `Base.metadata.drop_all(engine)`. A `uv run pytest`
+# invocation that forgets to point `KITCHEN_POSTGRES_DB` somewhere else — or
+# a `make test` run against a Postgres a `make up`'d demo is also using —
+# will otherwise drop the live demo's own tables out from under it. Forcing
+# a `_test` suffix here, unconditionally, means that can't happen regardless
+# of how the suite is invoked.
+_db_env_var = "KITCHEN_POSTGRES_DB"
+_requested_db = os.environ.get(_db_env_var, "kitchen")
+if not _requested_db.endswith("_test"):
+    os.environ[_db_env_var] = f"{_requested_db}_test"
 
-from kitchen.db import Base, SessionLocal, engine
+from collections.abc import Iterator  # noqa: E402
+
+import psycopg  # noqa: E402
+import pytest  # noqa: E402
+from sqlalchemy import text  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
+
+from kitchen import settings  # noqa: E402
+from kitchen.db import Base, SessionLocal, engine  # noqa: E402
 
 _TABLES = ("ticket", "oven_slot", "oven", "station", "outbox", "processed_event")
 
 
+def _ensure_test_database_exists() -> None:
+    """`CREATE DATABASE` can't run inside a transaction, and the target
+    database has to exist before anything can connect to it — so this goes
+    through Postgres's own always-present `postgres` maintenance database
+    first, on the same server `settings` already points at."""
+    conn = psycopg.connect(
+        host=settings.POSTGRES_HOST,
+        port=settings.POSTGRES_PORT,
+        user=settings.POSTGRES_USER,
+        password=settings.POSTGRES_PASSWORD,
+        dbname="postgres",
+        autocommit=True,
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (settings.POSTGRES_DB,))
+            if cursor.fetchone() is None:
+                cursor.execute(f'CREATE DATABASE "{settings.POSTGRES_DB}"')
+    finally:
+        conn.close()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _schema() -> Iterator[None]:
+    _ensure_test_database_exists()
     Base.metadata.create_all(engine)
     yield
     Base.metadata.drop_all(engine)

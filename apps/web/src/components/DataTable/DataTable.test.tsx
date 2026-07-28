@@ -47,4 +47,24 @@ describe("DataTable", () => {
     const renderedRows = screen.getAllByText(/^Row \d+$/);
     expect(renderedRows.length).toBeLessThan(manyRows.length);
   });
+
+  it("calls onRowClick with the clicked row", async () => {
+    const onRowClick = vi.fn();
+    render(<DataTable columns={COLUMNS} rows={ROWS} rowKey={(row) => row.id} onRowClick={onRowClick} />);
+    await userEvent.click(screen.getByText("Alice"));
+    expect(onRowClick).toHaveBeenCalledWith(ROWS[0]);
+  });
+
+  it("calls onRowClick on Enter for keyboard users", async () => {
+    const onRowClick = vi.fn();
+    render(<DataTable columns={COLUMNS} rows={ROWS} rowKey={(row) => row.id} onRowClick={onRowClick} />);
+    screen.getByText("Alice").closest("tr")?.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onRowClick).toHaveBeenCalledWith(ROWS[0]);
+  });
+
+  it("rows aren't focusable when onRowClick is omitted", () => {
+    render(<DataTable columns={COLUMNS} rows={ROWS} rowKey={(row) => row.id} />);
+    expect(screen.getByText("Alice").closest("tr")).not.toHaveAttribute("tabIndex");
+  });
 });

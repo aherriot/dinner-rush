@@ -44,6 +44,7 @@ def _config(max_delivery_distance_cells: int = 45) -> RootConfig:
             tick_interval_seconds=1,
             slot_reaper_interval_seconds=5,
             slot_reaper_grace_seconds=30,
+            ticket_reconciler_grace_seconds=30,
             capacity=CapacityConfig(
                 max_queue_depth=40,
                 max_projected_wait_seconds=2700,

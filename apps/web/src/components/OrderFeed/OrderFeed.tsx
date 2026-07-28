@@ -8,12 +8,21 @@ export interface OrderFeedRow {
   code: string;
   status: OrderStatus;
   late?: boolean;
+  /** Pre-formatted ("3m ago") by the page, which owns the live clock tick —
+   * keeps this component free of its own timer, per its "purely
+   * props-driven" contract below. Omitted entirely by callers (e.g.
+   * Storybook fixtures) that don't need the column populated. */
+  placedAgo?: string;
 }
 
 export interface OrderFeedProps {
   orders?: OrderFeedRow[];
   state?: PanelState;
   errorMessage?: string;
+  /** Drill into a single order's history (CLAUDE.md: "more visibility into
+   * orders... their current state, and history"). Omitted, rows aren't
+   * clickable — e.g. Storybook fixtures with nothing to drill into. */
+  onSelect?: (code: string) => void;
 }
 
 const columns: DataTableColumn<OrderFeedRow>[] = [
@@ -27,6 +36,11 @@ const columns: DataTableColumn<OrderFeedRow>[] = [
     header: "Status",
     render: (row) => <StatusPill status={row.status} late={row.late} />,
   },
+  {
+    key: "placedAgo",
+    header: "Placed",
+    render: (row) => <span className={styles.time}>{row.placedAgo ?? "—"}</span>,
+  },
 ];
 
 /**
@@ -36,7 +50,7 @@ const columns: DataTableColumn<OrderFeedRow>[] = [
  * pushed in by the board page from `/ws/board`; this component is purely
  * props-driven.
  */
-export function OrderFeed({ orders = [], state = "idle", errorMessage }: OrderFeedProps) {
+export function OrderFeed({ orders = [], state = "idle", errorMessage, onSelect }: OrderFeedProps) {
   return (
     <Panel
       title="Order feed"
@@ -52,6 +66,7 @@ export function OrderFeed({ orders = [], state = "idle", errorMessage }: OrderFe
         virtualize
         rowHeightPx={28}
         viewportHeightPx={640}
+        onRowClick={onSelect ? (row) => onSelect(row.code) : undefined}
       />
     </Panel>
   );

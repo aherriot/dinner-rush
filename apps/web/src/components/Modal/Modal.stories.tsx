@@ -43,3 +43,8 @@ export const DestructiveConfirm: Story = {
     />
   ),
 };
+
+export const ReadOnly: Story = {
+  name: "Read-only (no actions)",
+  args: { title: "Order #4471", hideActions: true },
+};

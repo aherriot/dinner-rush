@@ -357,16 +357,19 @@ numbers in §3 were produced by it. Adding a token that fails is a red build.
 ```
 ┌─────────────┬──────────────────────────┬────────────────┐
 │ ORDER FEED  │ KITCHEN                  │ DISPATCH       │
-│ 280px       │ 1fr                      │ 380px          │
+│ 340px       │ 1fr                      │ 380px          │
 ├─────────────┴──────────────────────────┴────────────────┤
 │ STATUS BAR — clock · speed · rate · p95 · chaos    56px │
 └─────────────────────────────────────────────────────────┘
 ```
 
-`grid-template-columns: 280px 1fr 380px`, `grid-template-rows: 1fr 56px`,
+`grid-template-columns: 340px 1fr 380px`, `grid-template-rows: 1fr 56px`,
 `gap: var(--panel-gap)`. Designed for 1440×900 and must remain legible when
 projected. Below 1100px the three panels stack and the status bar becomes
 sticky — the board is not a mobile surface and should not pretend to be.
+
+Order feed widened from its original 280px to fit a third column (placed-ago
+time, alongside order code and status) and the per-order drill-in it opens.
 
 The storefront is a separate, deliberately calmer layout: single column, max
 `720px`, `--text-body`, light theme default. It uses the same tokens and the

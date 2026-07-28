@@ -2,6 +2,8 @@ import type { CourierMapEntry } from "../../components/DispatchPanel/DispatchPan
 import type { CourierStatus } from "../../components/CourierDot/CourierDot";
 import type { OvenViewModel } from "../../components/KitchenPanel/KitchenPanel";
 import type { OvenSlotStatus } from "../../components/OvenSlot/OvenSlot";
+import type { OrderFeedRow } from "../../components/OrderFeed/OrderFeed";
+import type { TimelineEvent } from "../../components/OrderTimeline/OrderTimeline";
 import type { OrderStatus } from "../../design/tokens";
 import type { BoardEnvelope } from "./useBoardSocket";
 
@@ -84,7 +86,10 @@ const ORDER_EVENT_STATUS: Record<string, OrderStatus> = {
  * included defensively for the same cold-start case. */
 const NEW_ROW_EVENT_TYPES = new Set(["order.placed", "order.rejected"]);
 
-export const ORDER_FEED_LIMIT = 200;
+// Matches gateway's `BOARD_ORDER_FEED_LIMIT` (board/views.py) — the client
+// cap must be at least the cold-load cap or a busy demo would visibly
+// truncate below what the initial snapshot already showed.
+export const ORDER_FEED_LIMIT = 500;
 
 export function applyOrderEvent(orders: BoardOrder[], event: BoardEnvelope): BoardOrder[] {
   const status = ORDER_EVENT_STATUS[event.event_type];
@@ -104,10 +109,44 @@ export function applyOrderEvent(orders: BoardOrder[], event: BoardEnvelope): Boa
   return next;
 }
 
-export function toOrderFeedRows(
-  orders: BoardOrder[],
-): { code: string; status: OrderStatus; late?: boolean }[] {
-  return orders.map(({ code, status, late }) => ({ code, status, late }));
+/** "45s ago" / "3m ago" / "2h ago" — coarser than a live-updating stopwatch
+ * on purpose, so it doesn't need its own re-render timer independent of the
+ * board's existing `now` tick (`TICK_INTERVAL_MS`, `Board.tsx`). */
+export function formatRelativeTime(pastMs: number, nowMs: number): string {
+  const seconds = Math.max(0, Math.round((nowMs - pastMs) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  return `${hours}h ago`;
+}
+
+export function toOrderFeedRows(orders: BoardOrder[], nowMs: number): OrderFeedRow[] {
+  return orders.map(({ code, status, late, placedAt }) => ({
+    code,
+    status,
+    late,
+    placedAgo: formatRelativeTime(placedAt, nowMs),
+  }));
+}
+
+/** Projects a live board event into the shape `OrderTimeline` renders, for
+ * appending to an already-open drill-in without a refetch — `null` when the
+ * event isn't for the order in question or isn't one of the FSM-affecting
+ * types `ORDER_EVENT_STATUS` recognises. `from_status` isn't derivable from
+ * a single event in isolation and isn't rendered by `OrderTimeline` anyway
+ * (it only reads `to_status`/`occurred_at`), so it's left `null` rather than
+ * tracked just to fill in a field nothing displays. */
+export function toTimelineEvent(event: BoardEnvelope, code: string): TimelineEvent | null {
+  const status = ORDER_EVENT_STATUS[event.event_type];
+  if (!status) return null;
+  if (event.payload["code"] !== code) return null;
+  return {
+    event: event.event_type,
+    from_status: null,
+    to_status: status,
+    occurred_at: event.occurred_at,
+  };
 }
 
 const ROLLING_RATE_WINDOW_MS = 60_000;

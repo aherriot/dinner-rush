@@ -27,7 +27,7 @@ from gateway.common.permissions import IsKitchenOrManager, IsManager
 from gateway.orders import dispatch_client, kitchen_client
 from gateway.orders.models import Order
 
-BOARD_ORDER_FEED_LIMIT = 100
+BOARD_ORDER_FEED_LIMIT = 500
 
 
 class ServiceUnavailable(APIException):

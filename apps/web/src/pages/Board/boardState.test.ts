@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { BoardEnvelope } from "./useBoardSocket";
 import {
   applyOrderEvent,
+  formatRelativeTime,
   lateRatioPercent,
   mapCouriers,
   mapOvens,
   ordersPerMinute,
   toOrderFeedRows,
+  toTimelineEvent,
   type BoardOrder,
   type DispatchCourierRaw,
   type KitchenOvenRaw,
@@ -74,10 +76,54 @@ describe("applyOrderEvent", () => {
   });
 });
 
+describe("formatRelativeTime", () => {
+  it("renders whole seconds under a minute", () => {
+    expect(formatRelativeTime(1000, 1000 + 45_000)).toBe("45s ago");
+  });
+
+  it("renders whole minutes under an hour", () => {
+    expect(formatRelativeTime(0, 3 * 60_000)).toBe("3m ago");
+  });
+
+  it("renders whole hours at an hour or beyond", () => {
+    expect(formatRelativeTime(0, 2 * 60 * 60_000)).toBe("2h ago");
+  });
+});
+
 describe("toOrderFeedRows", () => {
-  it("projects only the presentational fields", () => {
+  it("projects the presentational fields and formats placedAt relative to now", () => {
     const orders: BoardOrder[] = [{ code: "4471", status: "placed", late: true, placedAt: 1000 }];
-    expect(toOrderFeedRows(orders)).toEqual([{ code: "4471", status: "placed", late: true }]);
+    expect(toOrderFeedRows(orders, 1000 + 12_000)).toEqual([
+      { code: "4471", status: "placed", late: true, placedAgo: "12s ago" },
+    ]);
+  });
+});
+
+describe("toTimelineEvent", () => {
+  it("projects a matching order event into the timeline shape", () => {
+    const result = toTimelineEvent(
+      event({ event_type: "order.accepted", occurred_at: "2026-01-01T00:00:05Z", payload: { code: "4471" } }),
+      "4471",
+    );
+    expect(result).toEqual({
+      event: "order.accepted",
+      from_status: null,
+      to_status: "accepted",
+      occurred_at: "2026-01-01T00:00:05Z",
+    });
+  });
+
+  it("returns null for a different order's event", () => {
+    const result = toTimelineEvent(
+      event({ event_type: "order.accepted", payload: { code: "9999" } }),
+      "4471",
+    );
+    expect(result).toBeNull();
+  });
+
+  it("returns null for an event type with no FSM status mapping", () => {
+    const result = toTimelineEvent(event({ event_type: "station.down", payload: { code: "4471" } }), "4471");
+    expect(result).toBeNull();
   });
 });
 

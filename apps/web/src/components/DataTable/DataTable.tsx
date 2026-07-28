@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import styles from "./DataTable.module.css";
 
 export interface DataTableColumn<T> {
@@ -26,6 +26,7 @@ export interface DataTableProps<T> {
   rowHeightPx?: number;
   viewportHeightPx?: number;
   overscan?: number;
+  onRowClick?: (row: T) => void;
 }
 
 const SKELETON_ROWS = 6;
@@ -44,9 +45,24 @@ export function DataTable<T>({
   rowHeightPx = 28,
   viewportHeightPx = 320,
   overscan = 6,
+  onRowClick,
 }: DataTableProps<T>) {
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  function rowClickProps(row: T) {
+    if (!onRowClick) return {};
+    return {
+      "data-clickable": "" as const,
+      tabIndex: 0,
+      onClick: () => onRowClick(row),
+      onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onRowClick(row);
+      },
+    };
+  }
 
   const header = (
     <thead className={styles.head}>
@@ -111,7 +127,12 @@ export function DataTable<T>({
           {header}
           <tbody>
             {rows.map((row) => (
-              <tr key={rowKey(row)} className={styles.row} data-density={density}>
+              <tr
+                key={rowKey(row)}
+                className={styles.row}
+                data-density={density}
+                {...rowClickProps(row)}
+              >
                 {columns.map((column) => (
                   <td key={column.key} className={styles.cell}>
                     {column.render(row)}
@@ -145,7 +166,12 @@ export function DataTable<T>({
             <td colSpan={columns.length} style={{ padding: 0, height: firstVisible * rowHeightPx }} />
           </tr>
           {visibleRows.map((row) => (
-            <tr key={rowKey(row)} className={styles.row} data-density={density}>
+            <tr
+              key={rowKey(row)}
+              className={styles.row}
+              data-density={density}
+              {...rowClickProps(row)}
+            >
               {columns.map((column) => (
                 <td key={column.key} className={styles.cell}>
                   {column.render(row)}

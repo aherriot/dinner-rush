@@ -50,6 +50,14 @@ def _prep_seconds(ticket: Ticket) -> int:
     return sum(menu_by_sku[str(line["sku"])].prep_seconds for line in ticket.items)
 
 
+def expected_step_delay_seconds(ticket: Ticket, step_index: int) -> float:
+    """The un-scaled (domain-seconds) delay `advance_ticket` schedules
+    before firing `STEPS[step_index]` — exposed for `reconcile.py`'s
+    stuck-ticket sweep, which needs the same number to judge whether a
+    ticket has overrun how long that step should have taken."""
+    return _delay_seconds(ticket, step_index)
+
+
 def _delay_seconds(ticket: Ticket, step_index: int) -> float:
     fixed = _FIXED_DELAYS[step_index]
     if fixed is not None:

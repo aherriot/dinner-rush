@@ -4,6 +4,12 @@ Kitchen never reads the gateway's `order` table; this is the only way a
 ticket comes into existence, and it's also the PII boundary — only `code`
 and item skus/qty cross in, because that's all `order.accepted`'s payload
 carries.
+
+`events:order` carries every order event, not just this one (one stream per
+aggregate, not per event type — DECISIONS.md §0003), so this handler checks
+`envelope.event_type` itself rather than relying on `HANDLERS` to route by
+type, same as `dispatch.consumers.handle_order_stream` and
+`gateway.eventing.handlers.handle_order_sync`.
 """
 
 from datetime import UTC, datetime
@@ -41,6 +47,9 @@ def _bake_seconds(items: list[dict[str, object]]) -> int:
 
 
 def handle_order_accepted(session: Session, envelope: EventEnvelope) -> None:
+    if envelope.event_type != "order.accepted":
+        return
+
     should_process = mark_processed_or_skip(raw_cursor(session), CONSUMER_GROUP, envelope.event_id)
     if not should_process:
         return

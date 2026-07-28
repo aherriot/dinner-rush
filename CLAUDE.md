@@ -165,6 +165,7 @@ Violating any of these is a defect regardless of whether tests pass.
 make up            # bring the stack up; every container healthy in <90s
 make down
 make seed          # menu, customers, couriers, ovens from config.yaml
+make reset         # fast in-place reset for a fresh demo — clears orders/tickets/trips, keeps fixtures
 make demo          # up + seed + open the board — the one-command entry point
 make sim           # start the simulator at baseline rate
 make rush          # trigger the friday_rush scenario

@@ -76,6 +76,26 @@ def test_order_accepted_creates_a_queued_ticket_and_publishes_order_queued(
     assert "order.queued" in published_types
 
 
+def test_ignores_other_event_types_sharing_the_order_stream(session: Session) -> None:
+    """`events:order` carries every order event, not just `order.accepted`
+    (one stream per aggregate — DECISIONS.md §0003). `order.placed`'s
+    payload happens to carry the same `code`/`items` shape `order.accepted`
+    does, so without an explicit type check this handler would build a
+    ticket from it too — and then choke on the real `order.accepted` with a
+    `UniqueViolation` on `ticket.order_id`, exactly the incident this guards
+    against."""
+    order_id = uuid.uuid4()
+    placed = _order_accepted_envelope(order_id)
+    placed = placed.model_copy(update={"event_type": "order.placed", "event_id": uuid.uuid4()})
+
+    handle_order_accepted(session, placed)
+
+    assert session.query(Ticket).filter_by(order_id=order_id).count() == 0
+
+    handle_order_accepted(session, _order_accepted_envelope(order_id))
+    assert session.query(Ticket).filter_by(order_id=order_id).count() == 1
+
+
 def test_redelivering_order_accepted_does_not_create_a_second_ticket(session: Session) -> None:
     order_id = uuid.uuid4()
     envelope = _order_accepted_envelope(order_id)

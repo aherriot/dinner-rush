@@ -22,6 +22,7 @@ kitchen:
   tick_interval_seconds: 1 # scheduler loop; real seconds, not scaled
   slot_reaper_interval_seconds: 5
   slot_reaper_grace_seconds: 30 # past frees_at before reclaiming a stuck slot
+  ticket_reconciler_grace_seconds: 30 # past a step's own expected duration before re-firing it
 
   # Backpressure. The single most important block in this file.
   capacity:

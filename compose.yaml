@@ -335,6 +335,15 @@ services:
     healthcheck: *worker-healthcheck
     restart: unless-stopped
 
+  kitchen-reaper:
+    <<: *kitchen-image
+    command: ["python", "-m", "kitchen.cli", "reap"]
+    environment: *kitchen-env
+    volumes: *kitchen-volumes
+    depends_on: *kitchen-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
   dispatch:
     <<: *dispatch-image
     environment: *dispatch-env

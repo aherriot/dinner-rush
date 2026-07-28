@@ -10,16 +10,20 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const orders: OrderFeedRow[] = [
-  { code: "4471", status: "placed" },
-  { code: "4470", status: "baking" },
-  { code: "4469", status: "ready" },
-  { code: "4468", status: "rejected" },
-  { code: "4467", status: "delivering", late: true },
-  { code: "4466", status: "delivered" },
+  { code: "4471", status: "placed", placedAgo: "12s ago" },
+  { code: "4470", status: "baking", placedAgo: "1m ago" },
+  { code: "4469", status: "ready", placedAgo: "4m ago" },
+  { code: "4468", status: "rejected", placedAgo: "5m ago" },
+  { code: "4467", status: "delivering", late: true, placedAgo: "18m ago" },
+  { code: "4466", status: "delivered", placedAgo: "26m ago" },
 ];
 
 export const Populated: Story = {
   args: { orders },
+};
+
+export const Selectable: Story = {
+  args: { orders, onSelect: () => {} },
 };
 
 export const Loading: Story = {
