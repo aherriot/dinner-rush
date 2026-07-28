@@ -34,11 +34,12 @@ class Customer(BaseModel):
 class DispatchSnapshot(BaseModel):
     """
     Passthrough — same reasoning as `KitchenSnapshotSerializer`, for
-    dispatch's `TripOut`/`CourierOut`.
+    dispatch's `TripOut`/`CourierOut`/`BacklogOut`.
     """
 
     trips: Any
     couriers: Any
+    backlog: Any
 
 
 class KitchenSnapshot(BaseModel):
@@ -106,13 +107,6 @@ class OrderStatusEnum(StrEnum):
     queued = 'queued'
     ready = 'ready'
     rejected = 'rejected'
-
-
-class OrderStatusEvent(BaseModel):
-    from_status: constr(max_length=20) | None = None
-    to_status: constr(max_length=20)
-    event: constr(max_length=20)
-    occurred_at: AwareDatetime
 
 
 class OvenStatusStatusEnum(StrEnum):
@@ -217,6 +211,15 @@ class Order(BaseModel):
 class OrderCreateRequest(BaseModel):
     address_id: UUID
     items: list[OrderItemRequest]
+
+
+class OrderStatusEvent(BaseModel):
+    from_status: constr(max_length=20) | None = None
+    to_status: constr(max_length=20)
+    event: constr(max_length=20)
+    occurred_at: AwareDatetime
+    reason: RejectionReasonEnum | BlankEnum | NullEnum | None = None
+    queue_depth: conint(ge=0, le=2147483647) | None = None
 
 
 class OvenStatus(BaseModel):
