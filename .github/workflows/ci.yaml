@@ -95,6 +95,11 @@ jobs:
           uv run python services/kitchen/scripts/export_openapi.py
           git diff --exit-code -- services/kitchen/openapi.json
 
+      - name: simulator's generated client is up to date
+        run: |
+          uv run python services/simulator/scripts/generate_client.py
+          git diff --exit-code -- services/simulator/src/simulator/client/models.py
+
       - name: pytest
         env:
           POSTGRES_HOST: localhost
@@ -226,6 +231,9 @@ jobs:
 
       - name: Bring the stack up
         run: docker compose up -d --build
+
+      - name: Simulator image builds (profile-gated, not part of the default stack)
+        run: docker compose --profile simulator build simulator
 
       - name: Wait for every container to report healthy
         run: |

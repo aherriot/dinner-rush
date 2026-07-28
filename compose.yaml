@@ -65,6 +65,11 @@ x-worker-healthcheck: &worker-healthcheck
   retries: 10
   start_period: 5s
 
+x-simulator-image: &simulator-image
+  build:
+    context: .
+    dockerfile: services/simulator/Dockerfile
+
 services:
   gateway-db:
     image: postgres:18.4-alpine
@@ -209,6 +214,22 @@ services:
     depends_on: *kitchen-depends-on
     healthcheck: *worker-healthcheck
     restart: unless-stopped
+
+  # An ordinary API client (CLAUDE.md §5) — `make sim`/`make rush` run this
+  # with `docker compose run`, not `up`, so it never starts as part of
+  # `make up`/`make demo`. No POSTGRES_*/REDIS_URL env vars, no ports
+  # exposed, no privileged scope: enforced here, not by convention, so a
+  # reviewer can confirm the isolation from this file alone.
+  simulator:
+    <<: *simulator-image
+    profiles: ["simulator"]
+    environment:
+      CONFIG_PATH: /app/config.yaml
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    depends_on:
+      gateway:
+        condition: service_healthy
 
 volumes:
   gateway-db-data:

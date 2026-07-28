@@ -6,6 +6,8 @@ from dinner_rush_core.config import (
     RestaurantConfig,
     RootConfig,
     ServiceClientConfig,
+    SimulatorConfig,
+    SimulatorCustomersConfig,
     StreamsConfig,
 )
 from gateway.catalog.models import MenuItem
@@ -53,6 +55,7 @@ def _config(max_delivery_distance_cells: int = 45) -> RootConfig:
             circuit_breaker_failure_threshold=5,
             circuit_breaker_reset_seconds=30,
         ),
+        simulator=SimulatorConfig(customers=SimulatorCustomersConfig(population=50)),
     )
 
 
