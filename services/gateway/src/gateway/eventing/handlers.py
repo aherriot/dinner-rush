@@ -12,10 +12,16 @@ Three groups now:
   needs the Redis stream id (not just the envelope) — see its own
   docstring — so it's the one entry in `HANDLERS` that takes a
   `StreamMessage` directly instead of a bare `EventEnvelope`.
-- `cg:order-sync` (Phase 4) folds kitchen's own `order.queued`/`baking`/
-  `baked`/`ready` events back into this `Order`'s `status` and timeline —
-  gateway no longer drives those transitions itself, kitchen does, and this
-  is how the REST/timeline/websocket surfaces still see them.
+- `cg:order-sync` (Phase 4, extended Phase 7) folds kitchen's own
+  `order.queued`/`baking`/`baked`/`ready` events, and now dispatch's
+  `courier.assigned`/`order.picked_up`/`order.delivering`/`order.delivered`/
+  `order.failed`/`order.unassigned`, back into this `Order`'s `status` and
+  timeline — gateway no longer drives any of those transitions itself,
+  kitchen and dispatch do, and this is how the REST/timeline/websocket
+  surfaces still see them. The two services publish on different streams
+  (`events:order`, `events:courier` — ADR 0007 §4), so this same group name
+  runs as two consumer processes, one per stream; both call this module's
+  `handle_order_sync` either way.
 """
 
 from collections.abc import Callable
@@ -50,6 +56,12 @@ _EVENT_TYPE_TO_TRANSITION = {
     "order.baking": ("start_bake", "baking"),
     "order.baked": ("finish_bake", "boxed"),
     "order.ready": ("mark_ready", "ready"),
+    "courier.assigned": ("assign", "assigned"),
+    "order.picked_up": ("pick_up", "picked_up"),
+    "order.delivering": ("depart", "delivering"),
+    "order.delivered": ("deliver", "delivered"),
+    "order.failed": ("fail", "failed"),
+    "order.unassigned": ("unassign", "ready"),
 }
 
 
@@ -107,16 +119,11 @@ def handle_order_sync(envelope: EventEnvelope) -> None:
         order.status = to_status
         if to_status == "ready":
             order.ready_at = timezone.now()
+        if to_status == "delivered":
+            order.delivered_at = timezone.now()
         order.save()
         OrderStatusEvent.objects.create(
             order=order, from_status=from_status, to_status=to_status, event=fsm_event
-        )
-
-    if to_status == "ready":
-        from gateway.orders.tasks import start_dispatch_progression
-
-        start_dispatch_progression(
-            order, sequence=envelope.sequence + 1, causation_id=str(envelope.event_id)
         )
 
 

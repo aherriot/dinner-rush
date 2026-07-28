@@ -35,6 +35,9 @@ class OrderPlacedPayload(_Payload):
     total_cents: int
     grid_x: int
     grid_y: int
+    # Dispatch's only route to a delivery address (ADR 0007 §1) — kitchen
+    # never consumes this field and never sees address data by design.
+    line1: str
 
 
 class OrderAcceptedPayload(_Payload):
@@ -69,12 +72,48 @@ class OrderBakedPayload(_Payload):
 
 class OrderReadyPayload(_Payload):
     code: str
-    # Kitchen (Phase 4's producer) has no address data by design — no PII
-    # crosses into its database. `None` until Phase 7's dispatch, which
-    # does hold the address, becomes the actual owner of this field.
+    # The restaurant's fixed pickup point (config, not PII) — kitchen still
+    # never touches the dropoff address. Dispatch is this field's owner in
+    # the sense that it's the only consumer that acts on it (ADR 0007 §1).
     grid_x: int | None = None
     grid_y: int | None = None
     ready_at: datetime
+
+
+class CourierAssignedPayload(_Payload):
+    code: str
+    courier_id: str
+    eta_at: datetime
+    distance_cells: int
+
+
+class CourierStatusPayload(_Payload):
+    """Shared shape for `courier.online` / `courier.offline`."""
+
+    courier_id: str
+    x: int
+    y: int
+
+
+class OrderPickedUpPayload(_Payload):
+    code: str
+    courier_id: str
+    at: datetime
+
+
+class OrderDeliveringPayload(_Payload):
+    code: str
+    courier_id: str
+    eta_at: datetime
+
+
+class OrderUnassignedPayload(_Payload):
+    """ADR 0007 §4 — not in SPEC.md's original catalogue table. Fires when a
+    courier goes offline mid-trip; the order returns to `ready` and dispatch
+    re-attempts assignment."""
+
+    code: str
+    previous_courier_id: str
 
 
 class OrderDeliveredPayload(_Payload):

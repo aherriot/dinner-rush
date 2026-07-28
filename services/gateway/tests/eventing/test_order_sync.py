@@ -8,10 +8,11 @@ from gateway.customers.models import Address, Customer
 from gateway.eventing.handlers import handle_order_sync
 from gateway.eventing.models import ProcessedEvent
 from gateway.orders.models import Order
-from gateway.orders.tasks import advance_order
 
 
-def _order_event(order_id: uuid.UUID, event_type: str, sequence: int = 3) -> EventEnvelope:
+def _order_event(
+    order_id: uuid.UUID, event_type: str, sequence: int = 3, producer: str = "kitchen@0.1.0"
+) -> EventEnvelope:
     return EventEnvelope(
         event_id=uuid.uuid4(),
         event_type=event_type,
@@ -21,14 +22,9 @@ def _order_event(order_id: uuid.UUID, event_type: str, sequence: int = 3) -> Eve
         aggregate_id=order_id,
         sequence=sequence,
         correlation_id=order_id,
-        producer="kitchen@0.1.0",
+        producer=producer,
         payload={"code": "4400"},
     )
-
-
-@pytest.fixture(autouse=True)
-def _no_real_dispatch_scheduling(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(advance_order, "apply_async", lambda *a, **kw: None)
 
 
 @pytest.mark.django_db
@@ -54,14 +50,9 @@ def test_order_queued_advances_an_accepted_order_to_queued(
 
 
 @pytest.mark.django_db
-def test_the_full_kitchen_chain_advances_the_order_to_ready_and_kicks_off_dispatch(
-    monkeypatch: pytest.MonkeyPatch, customer_with_address: tuple[Customer, Address]
+def test_the_full_kitchen_chain_advances_the_order_to_ready(
+    customer_with_address: tuple[Customer, Address],
 ) -> None:
-    scheduled = []
-    monkeypatch.setattr(
-        advance_order, "apply_async", lambda args, countdown: scheduled.append(args)
-    )
-
     customer, address = customer_with_address
     order = Order.objects.create(
         code="4401",
@@ -85,7 +76,67 @@ def test_the_full_kitchen_chain_advances_the_order_to_ready_and_kicks_off_dispat
         "finish_bake",
         "mark_ready",
     ]
-    assert len(scheduled) == 1  # start_dispatch_progression fired exactly once
+
+
+@pytest.mark.django_db
+def test_the_full_dispatch_chain_advances_a_ready_order_to_delivered(
+    customer_with_address: tuple[Customer, Address],
+) -> None:
+    """Dispatch now drives `ready -> assigned -> picked_up -> delivering ->
+    delivered` for real (Phase 7) — gateway just folds each event in, same
+    as it already does for kitchen's chain."""
+    customer, address = customer_with_address
+    order = Order.objects.create(
+        code="4405",
+        customer=customer,
+        address=address,
+        status="ready",
+        subtotal_cents=1200,
+        delivery_fee_cents=299,
+        total_cents=1499,
+    )
+
+    handle_order_sync(_order_event(order.id, "courier.assigned", producer="dispatch@0.1.0"))
+    order.refresh_from_db()
+    assert order.status == "assigned"
+
+    for event_type in ("order.picked_up", "order.delivering", "order.delivered"):
+        handle_order_sync(_order_event(order.id, event_type, producer="dispatch@0.1.0"))
+
+    order.refresh_from_db()
+    assert order.status == "delivered"
+    assert order.delivered_at is not None
+    assert list(order.timeline.values_list("event", flat=True)) == [
+        "assign",
+        "pick_up",
+        "depart",
+        "deliver",
+    ]
+
+
+@pytest.mark.django_db
+def test_order_unassigned_returns_the_order_to_ready(
+    customer_with_address: tuple[Customer, Address],
+) -> None:
+    """The courier-offline chaos scenario (ADR 0007 §4): the order goes back
+    to `ready` so dispatch's own reassignment attempt has something to
+    assign again."""
+    customer, address = customer_with_address
+    order = Order.objects.create(
+        code="4406",
+        customer=customer,
+        address=address,
+        status="assigned",
+        subtotal_cents=1200,
+        delivery_fee_cents=299,
+        total_cents=1499,
+    )
+
+    handle_order_sync(_order_event(order.id, "order.unassigned", producer="dispatch@0.1.0"))
+
+    order.refresh_from_db()
+    assert order.status == "ready"
+    assert list(order.timeline.values_list("event", flat=True)) == ["unassign"]
 
 
 @pytest.mark.django_db

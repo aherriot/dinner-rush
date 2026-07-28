@@ -1,0 +1,99 @@
+import uuid
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from dinner_rush_core.auth import Claims
+from dispatch.api_models import CourierOut, CourierPositionRequest, CourierStatusRequest, TripOut
+from dispatch.auth import require_courier, require_service_scope
+from dispatch.db import get_session
+from dispatch.geo import get_position, set_position
+from dispatch.models import Courier, Trip
+from dispatch.redis_client import get_redis_client
+from dispatch.tasks import handle_courier_offline
+from dispatch.writer import build_envelope, write_outbox_event
+
+board_router = APIRouter(dependencies=[Depends(require_service_scope("dispatch:read"))])
+courier_router = APIRouter(dependencies=[Depends(require_courier)])
+
+
+def _own_courier_or_403(courier_id: uuid.UUID, claims: Claims) -> None:
+    if claims.sub != str(courier_id):
+        raise HTTPException(status_code=403, detail="token does not authorize this courier")
+
+
+@board_router.get("/couriers", response_model=list[CourierOut])
+def list_couriers(session: Session = Depends(get_session)) -> list[Courier]:
+    """`GET /couriers` (SPEC.md §3.4) — positions live in Redis; this is
+    status/metadata only, same split as oven state in kitchen's `/ovens`."""
+    return list(session.execute(select(Courier)).scalars().all())
+
+
+@courier_router.post("/couriers/{courier_id}/status", response_model=CourierOut)
+def set_courier_status(
+    courier_id: uuid.UUID,
+    request: CourierStatusRequest,
+    claims: Claims = Depends(require_courier),
+    session: Session = Depends(get_session),
+) -> Courier:
+    _own_courier_or_403(courier_id, claims)
+    if request.status not in ("online", "offline"):
+        raise HTTPException(status_code=422, detail="status must be 'online' or 'offline'")
+
+    courier = session.get(Courier, courier_id)
+    if courier is None:
+        raise HTTPException(status_code=404, detail="courier not found")
+
+    now = datetime.now(UTC)
+    x, y = get_position(get_redis_client(), str(courier_id)) or (0, 0)
+
+    if request.status == "offline":
+        handle_courier_offline(session, courier)
+        event_type = "courier.offline"
+    else:
+        if courier.status == "offline":
+            courier.status = "idle"
+        if courier.shift_started_at is None:
+            courier.shift_started_at = now
+        event_type = "courier.online"
+
+    envelope = build_envelope(
+        event_type=event_type,
+        aggregate_type="courier",
+        aggregate_id=courier.id,
+        sequence=int(now.timestamp() * 1000),
+        correlation_id=courier.id,
+        payload={"courier_id": str(courier.id), "x": x, "y": y},
+    )
+    write_outbox_event(session, envelope)
+    session.commit()
+    return courier
+
+
+@courier_router.post("/couriers/{courier_id}/position", response_model=CourierOut)
+def set_courier_position(
+    courier_id: uuid.UUID,
+    request: CourierPositionRequest,
+    claims: Claims = Depends(require_courier),
+    session: Session = Depends(get_session),
+) -> Courier:
+    _own_courier_or_403(courier_id, claims)
+    courier = session.get(Courier, courier_id)
+    if courier is None:
+        raise HTTPException(status_code=404, detail="courier not found")
+    set_position(get_redis_client(), str(courier_id), request.x, request.y)
+    return courier
+
+
+@courier_router.get("/couriers/me/trips", response_model=list[TripOut])
+def my_trips(
+    claims: Claims = Depends(require_courier), session: Session = Depends(get_session)
+) -> list[Trip]:
+    stmt = (
+        select(Trip)
+        .where(Trip.courier_id == uuid.UUID(claims.sub))
+        .order_by(Trip.assigned_at.desc())
+    )
+    return list(session.execute(stmt).scalars().all())

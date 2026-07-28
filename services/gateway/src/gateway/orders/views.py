@@ -126,6 +126,7 @@ class OrderCreateView(APIView):
                     "total_cents": order.total_cents,
                     "grid_x": address.grid_x,
                     "grid_y": address.grid_y,
+                    "line1": address.line1,
                 },
             )
             write_outbox_event(placed_envelope)

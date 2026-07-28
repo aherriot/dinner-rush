@@ -14,6 +14,7 @@ resolution-markers = [
 members = [
     "dinner-rush",
     "dinner-rush-core",
+    "dispatch",
     "gateway",
     "kitchen",
     "simulator",
@@ -616,6 +617,55 @@ requires-dist = [
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },
     { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "redis", specifier = ">=8.0,<9" },
+]
+
+[[package]]
+name = "dispatch"
+version = "0.1.0"
+source = { editable = "services/dispatch" }
+dependencies = [
+    { name = "alembic" },
+    { name = "celery" },
+    { name = "dinner-rush-core" },
+    { name = "fastapi" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "pydantic" },
+    { name = "redis" },
+    { name = "sqlalchemy" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "celery-types" },
+    { name = "httpx" },
+    { name = "hypothesis" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-repeat" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alembic", specifier = ">=1.16,<2" },
+    { name = "celery", specifier = ">=5.5,<6" },
+    { name = "dinner-rush-core", editable = "packages/dinner_rush_core" },
+    { name = "fastapi", specifier = ">=0.121,<1" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
+    { name = "pydantic", specifier = ">=2.13,<3" },
+    { name = "redis", specifier = ">=8.0,<9" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.38,<1" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "celery-types", specifier = ">=0.23,<1" },
+    { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "hypothesis", specifier = ">=6.140,<7" },
+    { name = "mypy", specifier = ">=2.3,<3" },
+    { name = "pytest", specifier = ">=9.1,<10" },
+    { name = "pytest-repeat", specifier = ">=0.9,<1" },
 ]
 
 [[package]]

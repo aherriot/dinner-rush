@@ -9,16 +9,21 @@ needed nor promised.
 from pydantic import BaseModel, ConfigDict
 
 from dinner_rush_core.events.schemas import (
+    CourierAssignedPayload,
+    CourierStatusPayload,
     ItemStartedPayload,
     OrderAcceptedPayload,
     OrderBakedPayload,
     OrderBakingPayload,
     OrderDeliveredPayload,
+    OrderDeliveringPayload,
     OrderFailedPayload,
+    OrderPickedUpPayload,
     OrderPlacedPayload,
     OrderQueuedPayload,
     OrderReadyPayload,
     OrderRejectedPayload,
+    OrderUnassignedPayload,
     OvenSlotFreedPayload,
     OvenStatusChangedPayload,
     StationDownPayload,
@@ -45,11 +50,29 @@ EVENT_CATALOGUE: dict[str, EventSchema] = {
     "order.baking": EventSchema(version=1, payload_model=OrderBakingPayload, stream="events:order"),
     "order.baked": EventSchema(version=1, payload_model=OrderBakedPayload, stream="events:order"),
     "order.ready": EventSchema(version=1, payload_model=OrderReadyPayload, stream="events:order"),
+    "order.picked_up": EventSchema(
+        version=1, payload_model=OrderPickedUpPayload, stream="events:order"
+    ),
+    "order.delivering": EventSchema(
+        version=1, payload_model=OrderDeliveringPayload, stream="events:order"
+    ),
     "order.delivered": EventSchema(
         version=1, payload_model=OrderDeliveredPayload, stream="events:order"
     ),
     "order.failed": EventSchema(version=1, payload_model=OrderFailedPayload, stream="events:order"),
+    "order.unassigned": EventSchema(
+        version=1, payload_model=OrderUnassignedPayload, stream="events:order"
+    ),
     "item.started": EventSchema(version=1, payload_model=ItemStartedPayload, stream="events:order"),
+    "courier.online": EventSchema(
+        version=1, payload_model=CourierStatusPayload, stream="events:courier"
+    ),
+    "courier.offline": EventSchema(
+        version=1, payload_model=CourierStatusPayload, stream="events:courier"
+    ),
+    "courier.assigned": EventSchema(
+        version=1, payload_model=CourierAssignedPayload, stream="events:courier"
+    ),
     # `oven`/`station` have no dedicated stream in DECISIONS.md §0003's fixed
     # three (`events:order`, `events:oven`, `events:courier`) — both kitchen-
     # infra event types share `events:oven`.

@@ -65,6 +65,30 @@ x-worker-healthcheck: &worker-healthcheck
   retries: 10
   start_period: 5s
 
+x-dispatch-image: &dispatch-image
+  build:
+    context: .
+    dockerfile: services/dispatch/Dockerfile
+
+x-dispatch-env: &dispatch-env
+  DISPATCH_POSTGRES_HOST: dispatch-db
+  DISPATCH_POSTGRES_PORT: "5432"
+  DISPATCH_POSTGRES_DB: dispatch
+  DISPATCH_POSTGRES_USER: dispatch
+  DISPATCH_POSTGRES_PASSWORD: dispatch
+  REDIS_URL: redis://redis:6379/0
+  CONFIG_PATH: /app/config.yaml
+  GATEWAY_URL: http://gateway:8000
+
+x-dispatch-volumes: &dispatch-volumes
+  - ./config.yaml:/app/config.yaml:ro
+
+x-dispatch-depends-on: &dispatch-depends-on
+  dispatch-db:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
 x-simulator-image: &simulator-image
   build:
     context: .
@@ -99,6 +123,22 @@ services:
       - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U kitchen -d kitchen"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  dispatch-db:
+    image: postgres:18.4-alpine
+    environment:
+      POSTGRES_DB: dispatch
+      POSTGRES_USER: dispatch
+      POSTGRES_PASSWORD: dispatch
+    volumes:
+      - dispatch-db-data:/var/lib/postgresql
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dispatch -d dispatch"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -167,7 +207,29 @@ services:
 
   consumer-order-sync:
     <<: *gateway-image
-    command: ["python", "manage.py", "stream_consumer", "--group", "cg:order-sync"]
+    command:
+      ["python", "manage.py", "stream_consumer", "--group", "cg:order-sync", "--stream", "events:order"]
+    environment: *gateway-env
+    volumes: *gateway-volumes
+    depends_on: *gateway-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
+  # Dispatch's own aggregate stream (ADR 0007 §4) — `courier.assigned` lives
+  # here, not on `events:order`. Same consumer group as above, a second
+  # process because a Redis consumer group is scoped to one stream.
+  consumer-order-sync-courier:
+    <<: *gateway-image
+    command:
+      [
+        "python",
+        "manage.py",
+        "stream_consumer",
+        "--group",
+        "cg:order-sync",
+        "--stream",
+        "events:courier",
+      ]
     environment: *gateway-env
     volumes: *gateway-volumes
     depends_on: *gateway-depends-on
@@ -215,6 +277,47 @@ services:
     healthcheck: *worker-healthcheck
     restart: unless-stopped
 
+  dispatch:
+    <<: *dispatch-image
+    environment: *dispatch-env
+    volumes: *dispatch-volumes
+    ports:
+      - "8002:8002"
+    depends_on: *dispatch-depends-on
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/readyz', timeout=2)"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  dispatch-celery-worker:
+    <<: *dispatch-image
+    command: ["celery", "-A", "dispatch.celery_app", "worker", "--loglevel=info"]
+    environment: *dispatch-env
+    volumes: *dispatch-volumes
+    depends_on: *dispatch-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
+  dispatch-outbox-relay:
+    <<: *dispatch-image
+    command: ["python", "-m", "dispatch.cli", "relay"]
+    environment: *dispatch-env
+    volumes: *dispatch-volumes
+    depends_on: *dispatch-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
+  dispatch-consumer:
+    <<: *dispatch-image
+    command: ["python", "-m", "dispatch.cli", "stream_consumer", "--group", "cg:dispatch"]
+    environment: *dispatch-env
+    volumes: *dispatch-volumes
+    depends_on: *dispatch-depends-on
+    healthcheck: *worker-healthcheck
+    restart: unless-stopped
+
   # An ordinary API client (CLAUDE.md §5) — `make sim`/`make rush` run this
   # with `docker compose run`, not `up`, so it never starts as part of
   # `make up`/`make demo`. No POSTGRES_*/REDIS_URL env vars, no ports
@@ -234,4 +337,5 @@ services:
 volumes:
   gateway-db-data:
   kitchen-db-data:
+  dispatch-db-data:
   gateway-keys:

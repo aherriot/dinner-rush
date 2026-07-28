@@ -6,13 +6,15 @@ up: ## bring the stack up; every container healthy in <90s
 	docker compose ps
 	docker compose exec gateway python manage.py migrate
 	docker compose exec kitchen alembic upgrade head
+	docker compose exec dispatch alembic upgrade head
 
 down:
 	docker compose down -v
 
-seed: ## menu, customers, staff, ovens and stations from config.yaml
+seed: ## menu, customers, staff, ovens, stations and couriers from config.yaml
 	docker compose exec gateway python manage.py seed
 	docker compose exec kitchen python -m kitchen.cli seed
+	docker compose exec dispatch python -m dispatch.cli seed
 
 demo: up seed ## up + seed + open the board — the one-command entry point
 	@echo "make demo: board UI lands in Phase 8 — see PHASES.md"
@@ -24,9 +26,10 @@ rush: ## trigger the friday_rush scenario — runs for its duration_seconds, the
 	docker compose --profile simulator run --rm simulator python -m simulator.cli --scenario friday_rush
 
 test: ## all Python tests, against real Postgres + Redis
-	docker compose up -d --wait --wait-timeout 90 gateway-db kitchen-db redis
+	docker compose up -d --wait --wait-timeout 90 gateway-db kitchen-db dispatch-db redis
 	POSTGRES_HOST=localhost REDIS_URL=redis://localhost:6379/0 \
 		KITCHEN_POSTGRES_HOST=localhost KITCHEN_POSTGRES_PORT=5433 \
+		DISPATCH_POSTGRES_HOST=localhost DISPATCH_POSTGRES_PORT=5434 \
 		uv run pytest
 
 test-fe: ## vitest + Playwright visual regression
@@ -42,6 +45,8 @@ lint: ## ruff, mypy, stylelint, eslint, token + generated-client drift check
 	git diff --exit-code -- services/gateway/openapi.json
 	uv run python services/kitchen/scripts/export_openapi.py
 	git diff --exit-code -- services/kitchen/openapi.json
+	uv run python services/dispatch/scripts/export_openapi.py
+	git diff --exit-code -- services/dispatch/openapi.json
 	uv run python services/simulator/scripts/generate_client.py
 	git diff --exit-code -- services/simulator/src/simulator/client/models.py
 	cd apps/web && pnpm run tokens:check
