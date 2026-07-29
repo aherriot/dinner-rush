@@ -76,9 +76,12 @@ describe("applyOrderEvent", () => {
   });
 
   it("doesn't throw when a recognised event type arrives with no payload at all", () => {
-    const malformed = { ...event({ event_type: "order.placed" }) } as BoardEnvelope;
-    // @ts-expect-error — simulating a network message that doesn't match the type
-    delete malformed.payload;
+    // Omit rather than `delete` — simulates a network message that doesn't
+    // match the type, without relying on `delete` being legal for a
+    // required property (it isn't, under this tsconfig).
+    const { payload, ...rest } = event({ event_type: "order.placed" });
+    void payload;
+    const malformed = rest as BoardEnvelope;
     expect(() => applyOrderEvent([], malformed)).not.toThrow();
     expect(applyOrderEvent([], malformed)).toEqual([]);
   });
