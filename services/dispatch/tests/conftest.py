@@ -14,6 +14,23 @@ _requested_db = os.environ.get(_db_env_var, "dispatch")
 if not _requested_db.endswith("_test"):
     os.environ[_db_env_var] = f"{_requested_db}_test"
 
+# Same hazard, Redis side: `test_assignment.py`/`test_board_endpoints.py`'s
+# `redis_client` fixtures read `REDIS_URL` and their teardown unconditionally
+# `DEL`s the shared `couriers:live` GEO key. Postgres gets its own isolated
+# `_test` database above, but `REDIS_URL`'s default (`redis://localhost:6379/0`)
+# is the exact same instance and DB index a `make up`'d demo's dispatch
+# service uses — a bare `uv run pytest` with no override wipes every live
+# courier's position out from under a running demo. Redis has no per-suite
+# database name the way Postgres does, only a numeric index, so redirect to
+# DB 15 (conventionally the "throwaway" index) whenever the URL still points
+# at the un-overridden default DB 0; an explicitly-chosen non-zero index is
+# left alone, same as the Postgres guard trusting an already-`_test`-suffixed
+# name.
+_redis_env_var = "REDIS_URL"
+_requested_redis_url = os.environ.get(_redis_env_var, "redis://localhost:6379/0")
+if _requested_redis_url.rstrip("/").rsplit("/", 1)[-1] in ("", "0"):
+    os.environ[_redis_env_var] = _requested_redis_url.rstrip("/").rsplit("/", 1)[0] + "/15"
+
 from collections.abc import Iterator  # noqa: E402
 
 import psycopg  # noqa: E402

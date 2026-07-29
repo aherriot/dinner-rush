@@ -82,7 +82,9 @@ def test_couriers_list_reports_null_position_for_a_courier_that_never_reported(
     assert body["y"] is None
 
 
-def _make_pending_dropoff(session: Session, *, created_at: datetime) -> PendingDropoff:
+def _make_pending_dropoff(
+    session: Session, *, created_at: datetime, ready_at: datetime | None = None
+) -> PendingDropoff:
     pending = PendingDropoff(
         order_id=uuid.uuid4(),
         code=f"T{created_at.timestamp():.0f}",
@@ -90,6 +92,7 @@ def _make_pending_dropoff(session: Session, *, created_at: datetime) -> PendingD
         dropoff_y=10,
         line1="1 Test St",
         created_at=created_at,
+        ready_at=ready_at,
     )
     session.add(pending)
     return pending
@@ -103,12 +106,17 @@ def test_backlog_reports_zero_and_no_oldest_age_when_nothing_is_waiting(
     assert response.json() == {"ready_count": 0, "oldest_waiting_seconds": None}
 
 
-def test_backlog_counts_pending_dropoffs_and_ages_the_oldest(
+def test_backlog_counts_pending_dropoffs_and_ages_the_oldest_by_when_it_went_ready(
     session: Session, client: TestClient
 ) -> None:
     now = datetime.now(UTC)
-    _make_pending_dropoff(session, created_at=now - timedelta(minutes=15))
-    _make_pending_dropoff(session, created_at=now - timedelta(minutes=2))
+    # Placed long ago but only went `ready` 15 minutes ago — the backlog age
+    # must come from `ready_at`, not `created_at`, or a slow-cooking order
+    # would inflate the "how long has this been waiting on a courier" number.
+    _make_pending_dropoff(
+        session, created_at=now - timedelta(hours=2), ready_at=now - timedelta(minutes=15)
+    )
+    _make_pending_dropoff(session, created_at=now, ready_at=now - timedelta(minutes=2))
     session.commit()
 
     response = client.get("/backlog")
@@ -117,6 +125,21 @@ def test_backlog_counts_pending_dropoffs_and_ages_the_oldest(
     assert body["ready_count"] == 2
     # ~15 minutes old, generous bounds so a slow CI box can't flake this.
     assert 14 * 60 < body["oldest_waiting_seconds"] < 16 * 60
+
+
+def test_backlog_excludes_orders_still_cooking_with_no_ready_at_yet(
+    session: Session, client: TestClient
+) -> None:
+    """A `pending_dropoff` row exists from `order.placed` onward (ADR 0007
+    §1) — long before the kitchen has actually boxed the order. Only rows
+    where `order.ready` has fired (`ready_at` set) belong in the backlog;
+    otherwise "N ready" would count orders still queued/prepping/baking."""
+    _make_pending_dropoff(session, created_at=datetime.now(UTC) - timedelta(minutes=10))
+    session.commit()
+
+    response = client.get("/backlog")
+    assert response.status_code == 200
+    assert response.json() == {"ready_count": 0, "oldest_waiting_seconds": None}
 
 
 def test_backlog_excludes_an_order_that_already_has_a_trip(
@@ -131,7 +154,11 @@ def test_backlog_excludes_an_order_that_already_has_a_trip(
     session.add(courier)
     session.flush()
 
-    pending = _make_pending_dropoff(session, created_at=datetime.now(UTC) - timedelta(minutes=30))
+    pending = _make_pending_dropoff(
+        session,
+        created_at=datetime.now(UTC) - timedelta(minutes=30),
+        ready_at=datetime.now(UTC) - timedelta(minutes=30),
+    )
     session.add(
         Trip(
             courier_id=courier.id,

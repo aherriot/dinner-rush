@@ -21,7 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from dinner_rush_core.config import DispatchConfig
-from dispatch.geo import chebyshev, get_position, nearest_within_radius
+from dispatch.geo import chebyshev, get_position, get_positions, nearest_within_radius
 from dispatch.models import AddressGrant, Courier, Trip
 
 if TYPE_CHECKING:
@@ -82,6 +82,35 @@ def _batch_candidate(
     return best
 
 
+def _nearest_idle_courier_anywhere(
+    session: Session,
+    redis_client: "Redis",
+    idle_ids: set[str],
+    pickup_x: int,
+    pickup_y: int,
+) -> tuple[Courier, int, int, int] | None:
+    """Last resort, tried only after both the in-radius idle search and
+    batching have failed: the closest idle courier regardless of
+    `search_radius_cells`. Every future pickup search still originates from
+    this same fixed restaurant point, so without this an idle courier who
+    has drifted outside the radius (nothing currently drives one back once
+    it's out there) would never be found again by any order, ever — a slow
+    trip is a better outcome than a permanently stranded courier and a order
+    that never gets picked up."""
+    if not idle_ids:
+        return None
+    positions = get_positions(redis_client, list(idle_ids))
+    if not positions:
+        return None
+    nearest_id, (x, y) = min(
+        positions.items(),
+        key=lambda item: chebyshev(pickup_x, pickup_y, item[1][0], item[1][1]),
+    )
+    courier = session.get(Courier, nearest_id)
+    assert courier is not None
+    return courier, x, y, chebyshev(pickup_x, pickup_y, x, y)
+
+
 def _last_planned_stop(
     session: Session, courier_id: object, redis_client: "Redis"
 ) -> tuple[int, int] | None:
@@ -140,14 +169,20 @@ def attempt_assignment(
         pickup_leg_cells = idle_candidate.distance_cells
     else:
         batch = _batch_candidate(session, redis_client, pickup_x, pickup_y, config)
-        if batch is None:
-            return None
-        courier, detour_cells = batch
-        from_x, from_y = _last_planned_stop(session, courier.id, redis_client) or (
-            pickup_x,
-            pickup_y,
-        )
-        pickup_leg_cells = detour_cells
+        if batch is not None:
+            courier, detour_cells = batch
+            from_x, from_y = _last_planned_stop(session, courier.id, redis_client) or (
+                pickup_x,
+                pickup_y,
+            )
+            pickup_leg_cells = detour_cells
+        else:
+            far = _nearest_idle_courier_anywhere(
+                session, redis_client, idle_ids, pickup_x, pickup_y
+            )
+            if far is None:
+                return None
+            courier, from_x, from_y, pickup_leg_cells = far
 
     distance_cells = pickup_leg_cells + dropoff_leg_cells
     eta_seconds = distance_cells / _speed_cells_per_second(courier) / speed

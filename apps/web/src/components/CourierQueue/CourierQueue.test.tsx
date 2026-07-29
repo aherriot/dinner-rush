@@ -10,8 +10,8 @@ const couriers: CourierRosterEntry[] = [
     name: "Ada",
     status: "active",
     trips: [
-      { id: "t1", code: "4471", etaAtMs: NOW + 4 * 60_000 },
-      { id: "t2", code: "4472", etaAtMs: NOW - 4 * 60_000 },
+      { id: "t1", code: "4471", status: "delivering", etaAtMs: NOW + 4 * 60_000 },
+      { id: "t2", code: "4472", status: "assigned", etaAtMs: NOW - 4 * 60_000 },
     ],
   },
   { id: "c2", name: "Grace", status: "idle", trips: [] },
@@ -20,7 +20,12 @@ const couriers: CourierRosterEntry[] = [
 describe("CourierQueue", () => {
   it("treats a trip exactly at its ETA (and before it) as on time", () => {
     const onTime: CourierRosterEntry[] = [
-      { id: "c1", name: "Ada", status: "active", trips: [{ id: "t1", code: "1", etaAtMs: NOW }] },
+      {
+        id: "c1",
+        name: "Ada",
+        status: "active",
+        trips: [{ id: "t1", code: "1", status: "delivering", etaAtMs: NOW }],
+      },
     ];
     render(<CourierQueue couriers={onTime} now={NOW} />);
     expect(screen.getByText("on time")).toBeInTheDocument();
@@ -32,7 +37,7 @@ describe("CourierQueue", () => {
         id: "c1",
         name: "Ada",
         status: "active",
-        trips: [{ id: "t1", code: "1", etaAtMs: NOW - 10_000 }],
+        trips: [{ id: "t1", code: "1", status: "delivering", etaAtMs: NOW - 10_000 }],
       },
     ];
     render(<CourierQueue couriers={barelyLate} now={NOW} />);
@@ -52,7 +57,17 @@ describe("CourierQueue", () => {
     expect(screen.getByText("4471")).toBeInTheDocument();
     expect(screen.getByText("on time")).toBeInTheDocument();
     expect(screen.getByText("4m late")).toBeInTheDocument();
-    expect(screen.getByText("No active trips")).toBeInTheDocument();
+    expect(screen.getByText("Delivering")).toBeInTheDocument();
+    expect(screen.getByText("Heading to pickup")).toBeInTheDocument();
+    expect(screen.getByText("Idle at base")).toBeInTheDocument();
+  });
+
+  it("labels an offline courier distinctly from one idling at base", () => {
+    const offline: CourierRosterEntry[] = [
+      { id: "c1", name: "Ada", status: "offline", trips: [] },
+    ];
+    render(<CourierQueue couriers={offline} now={NOW} />);
+    expect(screen.getByText("Offline")).toBeInTheDocument();
   });
 
   it("renders the backlog callout with a count and oldest-waiting age", () => {

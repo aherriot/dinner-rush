@@ -60,15 +60,19 @@ class DropoffOut(BaseModel):
 
 
 class BacklogOut(BaseModel):
-    """`GET /backlog` — orders sitting in `pending_dropoff` with no `trip`
-    row yet: `ready` and waiting on an assignment the retry loop hasn't found
-    a courier for. Not visible anywhere else on the board; this is the number
-    that would have caught a stuck assignment loop immediately."""
+    """`GET /backlog` — orders with `pending_dropoff.ready_at` set (i.e.
+    `order.ready` has actually fired) and no `trip` row yet: genuinely boxed
+    and waiting on an assignment the retry loop hasn't found a courier for.
+    Excludes orders still queued/prepping/baking — those have a
+    `pending_dropoff` row too (cached ahead of time on `order.placed`, ADR
+    0007 §1) but aren't `ready_count`'s concern. Not visible anywhere else on
+    the board; this is the number that would have caught a stuck assignment
+    loop immediately."""
 
     ready_count: int
-    #: Age of the oldest such row, or `None` when the backlog is empty —
-    #: never `0`, so an empty backlog can't be confused with "just started
-    #: waiting".
+    #: Age of the oldest such row since it went `ready` (not since
+    #: `order.placed`), or `None` when the backlog is empty — never `0`, so
+    #: an empty backlog can't be confused with "just started waiting".
     oldest_waiting_seconds: float | None
 
 

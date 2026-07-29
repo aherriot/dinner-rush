@@ -2,9 +2,14 @@ import { CourierDot, type CourierStatus } from "../CourierDot/CourierDot";
 import { Panel, type PanelState } from "../Panel/Panel";
 import styles from "./CourierQueue.module.css";
 
+export type TripPhase = "assigned" | "picked_up" | "delivering";
+
 export interface QueuedTrip {
   id: string;
   code: string;
+  /** Dispatch's own trip FSM phase (SPEC.md §2) — which leg of the run this
+   * courier is actually on, not just "has an active trip." */
+  status: TripPhase;
   /** Epoch ms — compared against `now` to render "on time" / "Nm late". */
   etaAtMs: number;
 }
@@ -45,6 +50,25 @@ function formatMinutes(totalSeconds: number): string {
   const minutes = Math.round(totalSeconds / 60);
   return minutes <= 0 ? "<1m" : `${minutes}m`;
 }
+
+/** What a courier is actually doing right now, in the same words a human
+ * dispatcher would use — the trip phase alone ("assigned") doesn't say
+ * whether that means "driving to the restaurant" or "driving to the
+ * customer." */
+const TRIP_PHASE_LABEL: Record<TripPhase, string> = {
+  assigned: "Heading to pickup",
+  picked_up: "Picked up",
+  delivering: "Delivering",
+};
+
+/** A courier with no active trips is either off shift or waiting at the
+ * restaurant for the next one — distinct enough states that "No active
+ * trips" alone left the question the roster exists to answer unanswered. */
+const IDLE_COURIER_LABEL: Record<CourierStatus, string> = {
+  offline: "Offline",
+  idle: "Idle at base",
+  active: "No active trips",
+};
 
 interface TripEtaStatus {
   late: boolean;
@@ -111,16 +135,21 @@ export function CourierQueue({
                 <span className={styles["courier-name"]}>{courier.name}</span>
               </div>
               {courier.trips.length === 0 ? (
-                <p className={styles["no-trips"]}>No active trips</p>
+                <p className={styles["no-trips"]}>{IDLE_COURIER_LABEL[courier.status]}</p>
               ) : (
                 <ol className={styles.trips}>
                   {courier.trips.map((trip) => {
                     const eta = tripEtaStatus(trip.etaAtMs, now);
                     return (
                       <li key={trip.id} className={styles.trip}>
-                        <span className={styles["trip-code"]}>{trip.code}</span>
-                        <span className={styles["trip-eta"]} data-late={eta.late || undefined}>
-                          {eta.label}
+                        <div className={styles["trip-row"]}>
+                          <span className={styles["trip-code"]}>{trip.code}</span>
+                          <span className={styles["trip-eta"]} data-late={eta.late || undefined}>
+                            {eta.label}
+                          </span>
+                        </div>
+                        <span className={styles["trip-phase"]}>
+                          {TRIP_PHASE_LABEL[trip.status]}
                         </span>
                       </li>
                     );

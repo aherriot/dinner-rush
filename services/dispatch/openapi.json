@@ -2,7 +2,7 @@
   "components": {
     "schemas": {
       "BacklogOut": {
-        "description": "`GET /backlog` \u2014 orders sitting in `pending_dropoff` with no `trip`\nrow yet: `ready` and waiting on an assignment the retry loop hasn't found\na courier for. Not visible anywhere else on the board; this is the number\nthat would have caught a stuck assignment loop immediately.",
+        "description": "`GET /backlog` \u2014 orders with `pending_dropoff.ready_at` set (i.e.\n`order.ready` has actually fired) and no `trip` row yet: genuinely boxed\nand waiting on an assignment the retry loop hasn't found a courier for.\nExcludes orders still queued/prepping/baking \u2014 those have a\n`pending_dropoff` row too (cached ahead of time on `order.placed`, ADR\n0007 \u00a71) but aren't `ready_count`'s concern. Not visible anywhere else on\nthe board; this is the number that would have caught a stuck assignment\nloop immediately.",
         "properties": {
           "oldest_waiting_seconds": {
             "anyOf": [
@@ -350,7 +350,7 @@
   "paths": {
     "/backlog": {
       "get": {
-        "description": "Orders `dispatch.tasks.assign_order` hasn't matched to a courier yet:\na `pending_dropoff` row (written when `order.ready` arrives, ADR 0007 \u00a71)\nthat outlives assignment means the retry loop keeps failing to find one \u2014\nthe row is only ever deleted on a successful `attempt_assignment`\n(`dispatch.tasks.assign_order`). The `NOT EXISTS` against `trip` is\nbelt-and-suspenders for that invariant rather than the primary signal:\nevery surviving `pending_dropoff` row already implies no trip exists for\nits `order_id`.",
+        "description": "Orders `dispatch.tasks.assign_order` hasn't matched to a courier yet\n\u2014 but only counting from `ready_at`, not `created_at`: a `pending_dropoff`\nrow exists from `order.placed` onward (ADR 0007 \u00a71), long before the\norder is actually ready, so counting every surviving row would fold in\neverything still queued/prepping/baking too. `ready_at` is set once\n`order.ready` actually arrives (`consumers.py`); a row that outlives\nassignment after that means the retry loop keeps failing to find a\ncourier \u2014 the row is only ever deleted on a successful\n`attempt_assignment` (`dispatch.tasks.assign_order`). The `NOT EXISTS`\nagainst `trip` is belt-and-suspenders for that invariant rather than the\nprimary signal: every surviving `pending_dropoff` row already implies no\ntrip exists for its `order_id`.",
         "operationId": "get_backlog_backlog_get",
         "parameters": [
           {

@@ -63,6 +63,7 @@ def _trigger_assignment(session: Session, envelope: EventEnvelope) -> None:
         # it, or a bug upstream) — nothing to assign against. `order.ready`
         # isn't acked by the caller in this case; XAUTOCLAIM will retry it.
         raise RuntimeError(f"no pending_dropoff for order {envelope.aggregate_id}")
+    pending.ready_at = datetime.now(UTC)
     try_assign(
         order_id=pending.order_id,
         code=pending.code,

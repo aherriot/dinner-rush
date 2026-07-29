@@ -1,4 +1,8 @@
-import type { BacklogSummary, CourierRosterEntry } from "../../components/CourierQueue/CourierQueue";
+import type {
+  BacklogSummary,
+  CourierRosterEntry,
+  QueuedTrip,
+} from "../../components/CourierQueue/CourierQueue";
 import type { CourierMapEntry } from "../../components/DispatchPanel/DispatchPanel";
 import type { CourierStatus } from "../../components/CourierDot/CourierDot";
 import type { OvenViewModel } from "../../components/KitchenPanel/KitchenPanel";
@@ -102,7 +106,10 @@ export const ORDER_FEED_LIMIT = 500;
 export function applyOrderEvent(orders: BoardOrder[], event: BoardEnvelope): BoardOrder[] {
   const status = ORDER_EVENT_STATUS[event.event_type];
   if (!status) return orders;
-  const code = event.payload["code"];
+  // `event.payload` is typed as always present, but this is live network
+  // data, not a value this module constructed — a client must never crash
+  // the board's render loop over a message shape it didn't expect.
+  const code = event.payload?.["code"];
   if (typeof code !== "string") return orders;
 
   const index = orders.findIndex((order) => order.code === code);
@@ -216,6 +223,18 @@ const COURIER_STATUS: Record<string, CourierStatus> = {
   delivering: "active",
 };
 
+/** Dispatch's `GET /trips` only ever returns `assigned`/`picked_up`/
+ * `delivering` (its own in-flight filter) — `picked_up` is real in the FSM
+ * but never actually observed here since `arrive_at_pickup` advances a trip
+ * straight through it to `delivering` inside one transaction (`tasks.py`).
+ * Falling back to `"assigned"` for anything unrecognised keeps this from
+ * throwing on a future trip status this mapping hasn't caught up to yet. */
+const TRIP_PHASE: Record<string, QueuedTrip["status"]> = {
+  assigned: "assigned",
+  picked_up: "picked_up",
+  delivering: "delivering",
+};
+
 /** Couriers that have never reported a position (`x`/`y` both `null`, per
  * `dispatch.geo`'s "absent, not zero" contract) are excluded from the map —
  * there's nowhere honest to place a dot for them. */
@@ -274,6 +293,7 @@ export function mapCourierRoster(
       .map((trip) => ({
         id: trip.id,
         code: trip.code,
+        status: TRIP_PHASE[trip.status] ?? "assigned",
         etaAtMs: new Date(trip.eta_at).getTime(),
       })),
   }));

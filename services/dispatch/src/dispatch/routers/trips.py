@@ -58,21 +58,26 @@ def list_trips(session: Session = Depends(get_session)) -> list[Trip]:
 
 @board_router.get("/backlog", response_model=BacklogOut)
 def get_backlog(session: Session = Depends(get_session)) -> BacklogOut:
-    """Orders `dispatch.tasks.assign_order` hasn't matched to a courier yet:
-    a `pending_dropoff` row (written when `order.ready` arrives, ADR 0007 §1)
-    that outlives assignment means the retry loop keeps failing to find one —
-    the row is only ever deleted on a successful `attempt_assignment`
-    (`dispatch.tasks.assign_order`). The `NOT EXISTS` against `trip` is
-    belt-and-suspenders for that invariant rather than the primary signal:
-    every surviving `pending_dropoff` row already implies no trip exists for
-    its `order_id`."""
+    """Orders `dispatch.tasks.assign_order` hasn't matched to a courier yet
+    — but only counting from `ready_at`, not `created_at`: a `pending_dropoff`
+    row exists from `order.placed` onward (ADR 0007 §1), long before the
+    order is actually ready, so counting every surviving row would fold in
+    everything still queued/prepping/baking too. `ready_at` is set once
+    `order.ready` actually arrives (`consumers.py`); a row that outlives
+    assignment after that means the retry loop keeps failing to find a
+    courier — the row is only ever deleted on a successful
+    `attempt_assignment` (`dispatch.tasks.assign_order`). The `NOT EXISTS`
+    against `trip` is belt-and-suspenders for that invariant rather than the
+    primary signal: every surviving `pending_dropoff` row already implies no
+    trip exists for its `order_id`."""
+    is_ready = PendingDropoff.ready_at.is_not(None)
     no_trip_yet = ~select(Trip.id).where(Trip.order_id == PendingDropoff.order_id).exists()
-    stmt = select(func.count(), func.min(PendingDropoff.created_at)).where(no_trip_yet)
-    ready_count, oldest_created_at = session.execute(stmt).one()
+    stmt = select(func.count(), func.min(PendingDropoff.ready_at)).where(is_ready, no_trip_yet)
+    ready_count, oldest_ready_at = session.execute(stmt).one()
 
     oldest_waiting_seconds = None
-    if oldest_created_at is not None:
-        oldest_waiting_seconds = (datetime.now(UTC) - _as_utc(oldest_created_at)).total_seconds()
+    if oldest_ready_at is not None:
+        oldest_waiting_seconds = (datetime.now(UTC) - _as_utc(oldest_ready_at)).total_seconds()
 
     return BacklogOut(ready_count=ready_count, oldest_waiting_seconds=oldest_waiting_seconds)
 

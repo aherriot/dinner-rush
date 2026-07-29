@@ -184,6 +184,33 @@ def test_falls_back_to_batching_a_busy_courier_when_no_idle_courier_is_in_range(
     assert result.courier_id == busy.id
 
 
+def test_falls_back_to_the_nearest_idle_courier_outside_the_search_radius(
+    session: Session, redis_client: redis.Redis
+) -> None:
+    """A courier that drifted out past `search_radius_cells` (e.g. left
+    idle far from a past dropoff) must still eventually be found — every
+    pickup search originates from the same fixed restaurant point, so
+    without this fallback that courier, and any order landing on it, would
+    be stuck forever rather than just getting a slow trip."""
+    far = _idle_courier(session, redis_client, x=95, y=95)
+    session.commit()
+
+    result = attempt_assignment(
+        session,
+        redis_client,
+        order_id=uuid.uuid4(),
+        code="4476",
+        dropoff_x=60,
+        dropoff_y=40,
+        line1="1 Test Street",
+        config=_CONFIG,
+        speed=1,
+    )
+
+    assert result is not None
+    assert result.courier_id == far.id
+
+
 def test_assignment_creates_a_live_address_grant(
     session: Session, redis_client: redis.Redis
 ) -> None:
