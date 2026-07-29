@@ -85,12 +85,17 @@
 
 .trip {
   display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: var(--panel-gap) var(--panel-gap) var(--panel-gap) var(--panel-gutter);
+  border-bottom: var(--border-subtle) 1px solid;
+}
+
+.trip-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--panel-gutter);
-  height: var(--row-dense);
-  padding: 0 var(--panel-gap) 0 var(--panel-gutter);
-  border-bottom: var(--border-subtle) 1px solid;
 }
 
 .trip-code {
@@ -98,6 +103,12 @@
   font-size: var(--text-sm-size);
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
+}
+
+.trip-phase {
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  color: var(--text-tertiary);
 }
 
 .trip-eta {

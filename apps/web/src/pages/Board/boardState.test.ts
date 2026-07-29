@@ -74,6 +74,14 @@ describe("applyOrderEvent", () => {
     const result = applyOrderEvent([], event({ event_type: "order.placed", payload: {} }));
     expect(result).toEqual([]);
   });
+
+  it("doesn't throw when a recognised event type arrives with no payload at all", () => {
+    const malformed = { ...event({ event_type: "order.placed" }) } as BoardEnvelope;
+    // @ts-expect-error — simulating a network message that doesn't match the type
+    delete malformed.payload;
+    expect(() => applyOrderEvent([], malformed)).not.toThrow();
+    expect(applyOrderEvent([], malformed)).toEqual([]);
+  });
 });
 
 describe("formatRelativeTime", () => {

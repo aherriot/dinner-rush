@@ -17,12 +17,13 @@ const couriers: CourierRosterEntry[] = [
     name: "Ada",
     status: "active",
     trips: [
-      { id: "t1", code: "4471", etaAtMs: NOW + 4 * 60_000 },
-      { id: "t2", code: "4472", etaAtMs: NOW - 4 * 60_000 },
+      { id: "t1", code: "4471", status: "delivering", etaAtMs: NOW + 4 * 60_000 },
+      { id: "t2", code: "4472", status: "assigned", etaAtMs: NOW - 4 * 60_000 },
     ],
   },
   { id: "c2", name: "Grace", status: "idle", trips: [] },
   { id: "c3", name: "Alan", status: "idle", trips: [] },
+  { id: "c4", name: "Sam", status: "offline", trips: [] },
 ];
 
 export const Populated: Story = {
