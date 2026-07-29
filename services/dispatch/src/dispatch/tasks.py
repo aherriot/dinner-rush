@@ -131,7 +131,7 @@ def assign_order(
 
     _tick_motion.apply_async(
         args=(
-            str(result.trip_id),
+            str(result.courier_id),
             result.from_x,
             result.from_y,
             config.restaurant.x,
@@ -148,7 +148,7 @@ def assign_order(
 
 @shared_task(name="dispatch.tick_motion")
 def _tick_motion(
-    trip_id: str,
+    courier_id: str,
     from_x: int,
     from_y: int,
     to_x: int,
@@ -157,7 +157,9 @@ def _tick_motion(
     duration_seconds: float,
 ) -> None:
     """Best-effort visual position interpolation (ADR 0007 §6) — never gates
-    a real state transition; those are scheduled on their own timers below."""
+    a real state transition; those are scheduled on their own timers below.
+    Keyed by `courier_id` (not the trip) since that's what `GET /couriers`
+    and `attempt_assignment`'s `GEOSEARCH` both look positions up by."""
     started_at = datetime.fromisoformat(started_at_iso)
     elapsed = (datetime.now(UTC) - started_at).total_seconds()
     fraction = 1.0 if duration_seconds <= 0 else min(1.0, max(0.0, elapsed / duration_seconds))
@@ -165,14 +167,14 @@ def _tick_motion(
     redis_client = get_redis_client()
     x = round(from_x + (to_x - from_x) * fraction)
     y = round(from_y + (to_y - from_y) * fraction)
-    set_position(redis_client, trip_id, x, y)
+    set_position(redis_client, courier_id, x, y)
 
     if fraction >= 1.0:
         return
     config = load_config().dispatch
     tick_seconds = min(config.eta_recalc_interval_seconds / _speed(), duration_seconds - elapsed)
     _tick_motion.apply_async(
-        args=(trip_id, from_x, from_y, to_x, to_y, started_at_iso, duration_seconds),
+        args=(courier_id, from_x, from_y, to_x, to_y, started_at_iso, duration_seconds),
         countdown=max(tick_seconds, 0.1),
     )
 
@@ -221,6 +223,7 @@ def arrive_at_pickup(trip_id: str, sequence: int, causation_id: str | None) -> N
             trip.dropoff_x,
             trip.dropoff_y,
         )
+        courier_id = str(trip.courier_id)
         eta_at = trip.eta_at
         next_sequence = sequence + 2
         next_causation = str(delivering_envelope.event_id)
@@ -231,7 +234,7 @@ def arrive_at_pickup(trip_id: str, sequence: int, causation_id: str | None) -> N
     dropoff_leg_seconds = max((eta_at - now).total_seconds(), 0.0)
     _tick_motion.apply_async(
         args=(
-            trip_id,
+            courier_id,
             pickup_x,
             pickup_y,
             dropoff_x,
@@ -269,8 +272,22 @@ def arrive_at_dropoff(trip_id: str, sequence: int, causation_id: str | None) -> 
             _other_active_trips_stmt(courier.id, trip.id)
         ).scalar_one()
         if other_active == 0:
+            # Idle couriers head back to base rather than parking at the
+            # dropoff — `attempt_assignment` only ever searches for idle
+            # couriers within `search_radius_cells` of the restaurant
+            # (`assignment.py`), and every pickup is at that same fixed
+            # point, so a courier left idle out at a dropoff on the far side
+            # of the grid would never again be found by that search: it's
+            # not a temporary miss, it's permanent until the courier goes
+            # offline/online. Snapping back to base keeps the radius search
+            # meaningful instead of quietly stranding couriers.
             courier.status = "idle"
-        set_position(get_redis_client(), str(courier.id), trip.dropoff_x, trip.dropoff_y)
+            config = load_config().dispatch
+            set_position(
+                get_redis_client(), str(courier.id), config.restaurant.x, config.restaurant.y
+            )
+        else:
+            set_position(get_redis_client(), str(courier.id), trip.dropoff_x, trip.dropoff_y)
 
         envelope = build_envelope(
             event_type="order.delivered",
