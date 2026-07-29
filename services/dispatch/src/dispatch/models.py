@@ -96,6 +96,13 @@ class PendingDropoff(Base):
     dropoff_y: Mapped[int] = mapped_column(SmallInteger)
     line1: Mapped[str]
     created_at: Mapped[datetime]
+    #: Set when `order.ready` arrives for this order (`consumers.py`) — until
+    #: then the row exists only because `order.placed` cached the address
+    #: ahead of time (ADR 0007 §1); the order may still be queued/baking.
+    #: `GET /backlog` counts rows by this, not `created_at`, so "N ready"
+    #: means orders actually waiting on a courier, not every order dispatch
+    #: knows about.
+    ready_at: Mapped[datetime | None] = mapped_column(nullable=True, default=None)
 
 
 class Outbox(Base):
