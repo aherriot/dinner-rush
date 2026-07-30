@@ -1,0 +1,225 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-gutter);
+  height: 100%;
+}
+
+.diagram {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+
+  /* Without a real parent height (Storybook's canvas has none), `height:
+     100%` resolves to `auto` and the SVG falls back to its viewBox aspect
+     ratio at full container width — which, at this diagram's width, is
+     taller than a single viewport. Capping it keeps every story on one
+     screen; inside the real board (`.main > section { height: 100% }`,
+     Board.module.css) this rarely binds since the panel is usually shorter
+     than this already. Matches `SystemMap.tsx`'s computed `VIEW_HEIGHT`
+     (gateway-db/Redis both list 11 lines, the tallest nodes on the map). */
+  max-height: 700px;
+}
+
+.edge {
+  stroke: var(--border-strong);
+}
+
+.edge[data-flash] {
+  stroke: var(--service-healthy);
+  transition: stroke var(--dur-instant) var(--ease-out);
+}
+
+.edge-label-backing {
+  fill: var(--bg-panel);
+}
+
+.edge-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  fill: var(--text-tertiary);
+}
+
+.pulse {
+  fill: var(--service-healthy);
+}
+
+.node {
+  fill: var(--bg-raised);
+  stroke: var(--border-strong);
+}
+
+.node[data-health="degraded"] {
+  stroke: var(--service-degraded);
+}
+
+.node[data-health="down"] {
+  stroke: var(--service-down);
+}
+
+.node[data-health="unknown"] {
+  stroke: var(--service-unknown);
+}
+
+.node-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm-size);
+  font-weight: var(--text-h3-weight);
+  fill: var(--text-primary);
+}
+
+.node-sublabel {
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  fill: var(--text-tertiary);
+}
+
+.node-metric {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption-size);
+  font-variant-numeric: tabular-nums;
+  fill: var(--text-secondary);
+}
+
+.health-glyph {
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+}
+
+.health-glyph[data-health="healthy"] {
+  fill: var(--service-healthy);
+}
+
+.health-glyph[data-health="degraded"] {
+  fill: var(--service-degraded);
+}
+
+.health-glyph[data-health="down"] {
+  fill: var(--service-down);
+}
+
+.health-glyph[data-health="unknown"] {
+  fill: var(--service-unknown);
+}
+
+.health-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  fill: var(--text-secondary);
+}
+
+/* A database node is a "well" of persisted state, not a service — filled
+   with `--bg-inset` rather than `--bg-raised` (DESIGN.md §3.1's own use of
+   `--bg-inset` for wells/empty slots) so it reads as structurally different
+   from the six service boxes at a glance, not just smaller. */
+.db-node {
+  fill: var(--bg-inset);
+  stroke: var(--border-strong);
+}
+
+.db-node[data-health="degraded"] {
+  stroke: var(--service-degraded);
+}
+
+.db-node[data-health="down"] {
+  stroke: var(--service-down);
+}
+
+.db-node[data-health="unknown"] {
+  stroke: var(--service-unknown);
+}
+
+.db-node-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption-size);
+  font-weight: var(--text-h3-weight);
+  fill: var(--text-primary);
+}
+
+.list-header {
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  font-weight: var(--text-sm-weight);
+  fill: var(--text-secondary);
+}
+
+.list-item {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption-size);
+  fill: var(--text-secondary);
+}
+
+/* Database nodes and Redis are clickable (open a detail modal) — the
+   service nodes above them aren't, so the affordance is scoped to exactly
+   these two node types via this class, not a blanket `[role="button"]`
+   selector. */
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover .db-node,
+.clickable:hover .node {
+  stroke: var(--accent);
+}
+
+.clickable:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--panel-gutter);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex-shrink: 0;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--panel-gap);
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  color: var(--text-secondary);
+}
+
+.legend-glyph {
+  display: inline-block;
+  width: 12px;
+  text-align: center;
+}
+
+.legend-glyph[data-health="healthy"] {
+  color: var(--service-healthy);
+}
+
+.legend-glyph[data-health="degraded"] {
+  color: var(--service-degraded);
+}
+
+.legend-glyph[data-health="down"] {
+  color: var(--service-down);
+}
+
+.legend-glyph[data-health="unknown"] {
+  color: var(--service-unknown);
+}
+
+.legend-line {
+  display: inline-block;
+  width: 20px;
+  height: 0;
+  border-top: var(--border-strong) 2px solid;
+}
+
+.legend-line[data-kind="ws"] {
+  border-top: var(--border-strong) 2px dashed;
+}
+
+.legend-line[data-kind="db"] {
+  border-top: var(--border-strong) 1px dotted;
+}

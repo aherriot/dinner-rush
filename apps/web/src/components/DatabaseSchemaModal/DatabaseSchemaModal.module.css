@@ -1,0 +1,79 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--panel-gutter);
+}
+
+.table {
+  width: 100%;
+  border: var(--border-subtle) 1px solid;
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  align-self: start;
+}
+
+.caption {
+  padding: var(--panel-gap) var(--panel-gutter);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-size);
+  font-weight: var(--text-h3-weight);
+  color: var(--text-primary);
+  text-align: left;
+  border-bottom: var(--border-subtle) 1px solid;
+  caption-side: top;
+}
+
+.header {
+  padding: var(--panel-gap) var(--panel-gutter);
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  font-weight: var(--text-sm-weight);
+
+  /* text-secondary, not text-tertiary — this table's background is
+     --bg-raised (lighter than the --bg-panel every ratio in DESIGN.md §3.2
+     is measured against), and text-tertiary's margin over 4.5:1 there is
+     too thin to survive the lighter surface (axe caught this at 4.33:1). */
+  color: var(--text-secondary);
+  text-align: left;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.cell {
+  padding: var(--panel-gap) var(--panel-gutter);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption-size);
+  color: var(--text-primary);
+  border-top: var(--border-subtle) 1px solid;
+}
+
+.badge {
+  display: inline-block;
+  margin-left: var(--panel-gap);
+  padding: 0 var(--panel-gap);
+  font-family: var(--font-ui);
+  font-size: var(--text-caption-size);
+  font-weight: var(--text-h3-weight);
+  color: var(--bg-base);
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+}
+
+.type {
+  color: var(--text-secondary);
+}
+
+.reference {
+  /* A block of its own, not inline after `.type` — a long FK reference
+     (e.g. "uuid? → oven_slot.id") plus its base type doesn't reliably fit
+     one nowrap-free line at this column's minmax(220px, 1fr) width, so it
+     wraps under the type instead of forcing the whole table wider than the
+     modal (verified against the real `ticket` table, kitchen's own longest
+     reference). */
+  display: block;
+
+  /* text-secondary, not text-tertiary — same --bg-raised contrast margin
+     issue as .header above. */
+  color: var(--text-secondary);
+}

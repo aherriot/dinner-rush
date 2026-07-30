@@ -38,7 +38,16 @@ test.describe("Storybook stories", () => {
         const results = await new AxeBuilder({ page }).include("#storybook-root").analyze();
         expect(results.violations, results.violations.map((v) => `${v.id}: ${v.help}`).join("\n")).toEqual([]);
 
-        await expect(page).toHaveScreenshot(`${story.id}-${theme}.png`);
+        // `SystemMap` lists real, unbounded-length content (a database's
+        // real tables, Redis's real streams/groups) directly on its nodes —
+        // its natural height varies with that data and can exceed one
+        // viewport in Storybook's canvas (which, unlike the real board's
+        // grid, gives it no fixed parent height to fit within). A viewport
+        // screenshot would just clip it; every other story stays exactly
+        // as it was (viewport-clipped, matching what a human actually sees
+        // without scrolling).
+        const fullPage = story.id.startsWith("components-systemmap");
+        await expect(page).toHaveScreenshot(`${story.id}-${theme}.png`, { fullPage });
       });
     }
   }

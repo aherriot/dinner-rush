@@ -35,6 +35,10 @@
   --courier-idle: #78828F;
   --courier-active: #4FC3F7;
   --courier-offline: #78828F;
+  --service-healthy: #3DD68C;
+  --service-degraded: #D9A441;
+  --service-down: #F2545B;
+  --service-unknown: #7A8494;
   --accent: #FF8A3D;
   --accent-hover: #FFA05C;
   --accent-active: #E5762B;
@@ -121,6 +125,10 @@
   --courier-idle: #7B8496;
   --courier-active: #0C7BB5;
   --courier-offline: #7B8496;
+  --service-healthy: #0B7A4B;
+  --service-degraded: #9A6B10;
+  --service-down: #C41E3A;
+  --service-unknown: #6B7688;
   --accent: #B04E0C;
   --accent-hover: #C25A10;
   --accent-active: #9A430A;

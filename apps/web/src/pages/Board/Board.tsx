@@ -15,6 +15,16 @@ import {
   type ChaosScenarioOption,
   type SpeedValue,
 } from "../../components/StatusBar/StatusBar";
+import { SystemMap } from "../../components/SystemMap/SystemMap";
+import {
+  ADMIN_PULSE_EDGES,
+  SNAPSHOT_PULSE_EDGES,
+  computeNodeHealth,
+  computeNodeMetrics,
+  recentOrderCount,
+} from "../../components/SystemMap/systemMapState";
+import { useSystemMapPulses } from "../../components/SystemMap/useSystemMapPulses";
+import { SegmentedControl } from "../../components/Toolbar/Toolbar";
 import { Wordmark } from "../../design/Wordmark/Wordmark";
 import type { OrderStatus } from "../../design/tokens";
 import styles from "./Board.module.css";
@@ -37,6 +47,8 @@ import {
   type KitchenTicketRaw,
 } from "./boardState";
 import { useBoardSocket, type BoardEnvelope } from "./useBoardSocket";
+
+const PULSE_ANIMATION_MS = 300;
 
 const CHAOS_SCENARIOS: ChaosScenarioOption[] = [
   { name: "friday_rush", label: "Friday rush" },
@@ -152,6 +164,12 @@ function BoardDashboard() {
   const [speed, setSpeed] = useState<SpeedValue>(1);
   const [activeScenarios, setActiveScenarios] = useState<string[]>([]);
   const [now, setNow] = useState(() => Date.now());
+  const [view, setView] = useState<"board" | "system">("board");
+
+  // Drives the live pulses on the System view's architecture diagram — kept
+  // as its own hook (rather than component state here) so the timer
+  // bookkeeping doesn't crowd this already-large component.
+  const { pulses, notifyEvent, notifyEdges } = useSystemMapPulses(PULSE_ANIMATION_MS);
 
   const fetchSnapshot = useCallback(async () => {
     const { data: snapshot } = await api.GET("/api/v1/board/snapshot");
@@ -173,7 +191,11 @@ function BoardDashboard() {
       couriers: (snapshot.dispatch.couriers as DispatchCourierRaw[] | null) ?? null,
       backlog: (snapshot.dispatch.backlog as DispatchBacklogRaw | null) ?? null,
     });
-  }, []);
+    // `/board/snapshot` is gateway reading kitchen and dispatch in the same
+    // request (`kitchen_client.py`/`dispatch_client.py`) — the System
+    // view's honest proxy for "gateway just asked both services".
+    notifyEdges(SNAPSHOT_PULSE_EDGES);
+  }, [notifyEdges]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the initial cold-load fetch is exactly this effect's job
@@ -263,26 +285,41 @@ function BoardDashboard() {
           setDrillInEvents((current) => (current ? [...current, timelineEvent] : current));
         }
       }
+      // Replays this event's real hop-by-hop path on the System view's
+      // architecture diagram (`systemMapState.pulsePlanForEvent`).
+      notifyEvent(event);
     },
-    [debouncedResync],
+    [debouncedResync, notifyEvent],
   );
 
   const { connected } = useBoardSocket(handleBoardEvent);
 
-  const handleSpeedChange = useCallback((nextSpeed: SpeedValue) => {
-    setSpeed(nextSpeed);
-    void api.POST("/api/v1/admin/speed", { body: { speed: nextSpeed } });
-  }, []);
+  const handleSpeedChange = useCallback(
+    (nextSpeed: SpeedValue) => {
+      setSpeed(nextSpeed);
+      void api.POST("/api/v1/admin/speed", { body: { speed: nextSpeed } });
+      notifyEdges(ADMIN_PULSE_EDGES);
+    },
+    [notifyEdges],
+  );
 
-  const handleStartScenario = useCallback((name: string) => {
-    setActiveScenarios((current) => (current.includes(name) ? current : [...current, name]));
-    void api.POST("/api/v1/admin/scenarios/{name}/start", { params: { path: { name } } });
-  }, []);
+  const handleStartScenario = useCallback(
+    (name: string) => {
+      setActiveScenarios((current) => (current.includes(name) ? current : [...current, name]));
+      void api.POST("/api/v1/admin/scenarios/{name}/start", { params: { path: { name } } });
+      notifyEdges(ADMIN_PULSE_EDGES);
+    },
+    [notifyEdges],
+  );
 
-  const handleStopScenario = useCallback((name: string) => {
-    setActiveScenarios((current) => current.filter((scenario) => scenario !== name));
-    void api.POST("/api/v1/admin/scenarios/{name}/stop", { params: { path: { name } } });
-  }, []);
+  const handleStopScenario = useCallback(
+    (name: string) => {
+      setActiveScenarios((current) => current.filter((scenario) => scenario !== name));
+      void api.POST("/api/v1/admin/scenarios/{name}/stop", { params: { path: { name } } });
+      notifyEdges(ADMIN_PULSE_EDGES);
+    },
+    [notifyEdges],
+  );
 
   if (data === null && snapshotFailed) {
     return (
@@ -295,40 +332,80 @@ function BoardDashboard() {
   }
 
   const orders = data?.orders ?? [];
+  const recentPlacedCount = recentOrderCount(
+    orders.map((order) => order.placedAt),
+    now,
+  );
+
+  const health = computeNodeHealth({
+    hasSnapshot: data !== null,
+    snapshotFailed,
+    wsConnected: connected,
+    ovens: data?.ovens ?? null,
+    couriers: data?.couriers ?? null,
+    recentOrderCount: recentPlacedCount,
+  });
+  const metrics = computeNodeMetrics({
+    ordersPerMinute: ordersPerMinute(orders, now),
+    ovens: data?.ovens ?? null,
+    trips: data?.trips ?? null,
+    couriers: data?.couriers ?? null,
+    recentOrderCount: recentPlacedCount,
+  });
 
   return (
     <div className={styles.page} data-theme="dark">
       <div className={styles.grid}>
-        <div className={styles["order-feed"]}>
-          <OrderFeed
-            orders={toOrderFeedRows(orders, now)}
-            state={data === null ? "loading" : "idle"}
-            onSelect={setDrillInCode}
+        <div className={styles.tabs}>
+          <Wordmark />
+          <SegmentedControl<"board" | "system">
+            label="Board view"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "board", label: "Board" },
+              { value: "system", label: "System" },
+            ]}
           />
         </div>
-        <div className={styles.kitchen}>
-          <KitchenPanel
-            ovens={mapOvens(data?.ovens ?? null, now)}
-            queueDepth={data?.queue?.length}
-            state={data === null ? "loading" : data.ovens === null ? "error" : "idle"}
-            errorMessage="Kitchen is unreachable."
-          />
-        </div>
-        <div className={styles.dispatch}>
-          <DispatchPanel
-            couriers={mapCouriers(data?.couriers ?? null)}
-            trips={mapTripLines(data?.trips ?? null)}
-            activeTripCount={data?.trips?.length}
-            state={data === null ? "loading" : data.couriers === null ? "error" : "idle"}
-            errorMessage="Dispatch is unreachable."
-          />
-          <CourierQueue
-            couriers={mapCourierRoster(data?.couriers ?? null, data?.trips ?? null)}
-            backlog={mapBacklogSummary(data?.backlog)}
-            now={now}
-            state={data === null ? "loading" : data.couriers === null ? "error" : "idle"}
-            errorMessage="Dispatch is unreachable."
-          />
+        <div className={styles.main}>
+          {view === "board" ? (
+            <div className={styles["board-grid"]}>
+              <div className={styles["order-feed"]}>
+                <OrderFeed
+                  orders={toOrderFeedRows(orders, now)}
+                  state={data === null ? "loading" : "idle"}
+                  onSelect={setDrillInCode}
+                />
+              </div>
+              <div className={styles.kitchen}>
+                <KitchenPanel
+                  ovens={mapOvens(data?.ovens ?? null, now)}
+                  queueDepth={data?.queue?.length}
+                  state={data === null ? "loading" : data.ovens === null ? "error" : "idle"}
+                  errorMessage="Kitchen is unreachable."
+                />
+              </div>
+              <div className={styles.dispatch}>
+                <DispatchPanel
+                  couriers={mapCouriers(data?.couriers ?? null)}
+                  trips={mapTripLines(data?.trips ?? null)}
+                  activeTripCount={data?.trips?.length}
+                  state={data === null ? "loading" : data.couriers === null ? "error" : "idle"}
+                  errorMessage="Dispatch is unreachable."
+                />
+                <CourierQueue
+                  couriers={mapCourierRoster(data?.couriers ?? null, data?.trips ?? null)}
+                  backlog={mapBacklogSummary(data?.backlog)}
+                  now={now}
+                  state={data === null ? "loading" : data.couriers === null ? "error" : "idle"}
+                  errorMessage="Dispatch is unreachable."
+                />
+              </div>
+            </div>
+          ) : (
+            <SystemMap health={health} metrics={metrics} pulses={pulses} loading={data === null} />
+          )}
         </div>
         <div className={styles["status-bar"]}>
           <StatusBar
