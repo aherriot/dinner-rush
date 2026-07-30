@@ -8,7 +8,7 @@ from dinner_rush_core.events.envelope import EventEnvelope
 from kitchen.consumers import handle_order_accepted
 from kitchen.models import Outbox, Oven, OvenSlot, Ticket
 from kitchen.slots import count_occupied_slots
-from kitchen.tasks import STEPS, advance_ticket
+from kitchen.tasks import CLAIM_RETRY_COUNTDOWN_SECONDS, STEPS, advance_ticket
 
 
 def _order_accepted_envelope(order_id: uuid.UUID) -> EventEnvelope:
@@ -163,3 +163,8 @@ def test_start_bake_retries_with_backoff_when_the_oven_is_full(
     assert ticket.status == "prepping"  # never advanced to baking
     assert len(retried_args) == 1
     assert retried_args[0][0] == (str(ticket.id), 1, 11, None)
+    # Retry countdown is domain-seconds, scaled by SPEED at the point of use
+    # like every other delay in this module (SPEC.md §5) — at speed=60 a
+    # fixed 5s wall-clock retry would make contention recovery ~60x slower
+    # than every other step in the pipeline.
+    assert retried_args[0][1] == pytest.approx(CLAIM_RETRY_COUNTDOWN_SECONDS / 60)

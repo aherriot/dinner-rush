@@ -33,6 +33,21 @@ from dispatch.writer import OUTBOX_NOTIFY_CHANNEL
 STREAM = "events:order"  # dispatch's own consumer group only reads this one
 
 
+def _scatter_position(config: Any, index: int, count: int) -> tuple[int, int]:
+    """A deterministic point near the restaurant, spread around a circle so
+    `count` couriers don't all land on the same cell — shared by `run_seed`
+    and `run_reset` so a reset re-scatters couriers exactly like a fresh seed
+    would."""
+    restaurant = config.dispatch.restaurant
+    radius = config.dispatch.search_radius_cells
+    grid_width, grid_height = config.dispatch.grid.width, config.dispatch.grid.height
+    angle = 2 * math.pi * index / max(count, 1)
+    scatter = radius / 2
+    x = max(0, min(grid_width, round(restaurant.x + scatter * math.cos(angle))))
+    y = max(0, min(grid_height, round(restaurant.y + scatter * math.sin(angle))))
+    return x, y
+
+
 def run_stream_consumer(group: str, consumer_name: str | None = None) -> None:
     handler: Callable[[Session, EventEnvelope], None] = HANDLERS[group]
     consumer = consumer_name or f"{socket.gethostname()}-{group}"
@@ -129,9 +144,8 @@ def run_seed() -> None:
             return
         vehicles = ("bike", "scooter")
         speeds = config.dispatch.courier_speed_cells_per_minute
-        restaurant = config.dispatch.restaurant
-        radius = config.dispatch.search_radius_cells
-        for i in range(config.dispatch.courier_count):
+        count = config.dispatch.courier_count
+        for i in range(count):
             vehicle = vehicles[i % len(vehicles)]
             speed = speeds.bike if vehicle == "bike" else speeds.scooter
             courier = Courier(
@@ -143,11 +157,7 @@ def run_seed() -> None:
             )
             session.add(courier)
             session.flush()  # need courier.id for its starting position
-            angle = 2 * math.pi * i / max(config.dispatch.courier_count, 1)
-            scatter = radius / 2
-            grid_width, grid_height = config.dispatch.grid.width, config.dispatch.grid.height
-            x = max(0, min(grid_width, round(restaurant.x + scatter * math.cos(angle))))
-            y = max(0, min(grid_height, round(restaurant.y + scatter * math.sin(angle))))
+            x, y = _scatter_position(config, i, count)
             set_position(redis_client, str(courier.id), x, y)
         session.commit()
         print(f"seeded {config.dispatch.courier_count} couriers", flush=True)
@@ -159,9 +169,16 @@ def run_reset() -> None:
     """`make reset`'s dispatch half: clears trips, address grants and pending
     dropoffs plus the event spine, and brings every courier back `idle` —
     undoing a `courier_offline` scenario left active — without re-seeding.
-    Redis's `couriers:live` GEO key is dropped too: per `geo.py`'s own
-    docstring it isn't durable, and each courier just re-reports its position
-    on its next tick, so nothing needs restoring there by hand."""
+
+    Redis's `couriers:live` GEO key is dropped and rebuilt with a fresh
+    scatter, matching `run_seed`. There is no simulator-driven courier actor
+    that "re-reports" a position on its own (ADR 0007 §6) — a courier's
+    position is only ever written at seed time or as a side effect of
+    `_tick_motion`, which itself only runs once a courier is already
+    assigned a trip. Deleting the GEO key without restoring it left every
+    courier undiscoverable by `GEOSEARCH`, so the first order after a reset
+    could never find a courier and retried assignment forever."""
+    config = load_config()
     session = SessionLocal()
     redis_client = get_redis_client()
     try:
@@ -172,8 +189,12 @@ def run_reset() -> None:
             )
         )
         session.query(Courier).update({"status": "idle", "shift_started_at": datetime.now(UTC)})
+        couriers = session.query(Courier).order_by(Courier.id).all()
         session.commit()
         redis_client.delete(COURIERS_GEO_KEY)
+        for i, courier in enumerate(couriers):
+            x, y = _scatter_position(config, i, len(couriers))
+            set_position(redis_client, str(courier.id), x, y)
         print("reset: trips and event spine cleared, couriers back idle", flush=True)
     finally:
         session.close()
