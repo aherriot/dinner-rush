@@ -10,7 +10,7 @@ storefront/tracker. Kitchen display and courier view are panels inside the
 board, not separate apps.
 
 **Naming.** The project is **Dinner Rush** — repo `dinner-rush`, Python
-namespace `dinner_rush`, services `gateway` · `kitchen` · `dispatch` ·
+namespace `dinner_rush`, services `front-of-house` · `kitchen` · `dispatch` ·
 `simulator`. The name does a job: it puts the system under load in front of the
 pizza, because the domain is the weak part and the load behaviour is the whole
 pitch. Corollary for every piece of copy in the repo — the README, the board
@@ -24,7 +24,7 @@ header, the ADRs — **never the phrase "food delivery app."**
 > [CLAUDE.md](../CLAUDE.md) §3–6. Start there.
 
 Repo layout, `compose.yaml`, one command that works from a clean clone.
-Postgres, Redis, gateway skeleton, healthchecks with real readiness. `make up`,
+Postgres, Redis, front-of-house skeleton, healthchecks with real readiness. `make up`,
 `make demo`, `make test`. Ruff + mypy (strict) + pytest. GitHub Actions running
 lint, types and tests. `docs/adr/0001-why-three-services.md` — start the ADR log
 now, backfilling it later is obvious.
@@ -156,7 +156,7 @@ live. Then the infrastructure everything else depends on — designed in full in
 
 - **Event envelope**: `id`, `type`, `version`, `occurred_at`, `correlation_id`,
   payload. Schemas in the shared package, versioned, validated on publish.
-- **Transactional outbox** in the gateway — events written in the same
+- **Transactional outbox** in front-of-house — events written in the same
   transaction as the state change, relayed after commit. No lost events, no
   phantom events.
 - **Redis Streams**, not pub/sub. Consumer groups per subscriber.
@@ -205,7 +205,7 @@ an Uber Eats clone.
 
 ## Phase 5 — Boundaries done properly
 
-Service-to-service auth: gateway signs JWTs, services verify against a published
+Service-to-service auth: front-of-house signs JWTs, services verify against a published
 key. OpenAPI generated from both services; typed clients generated for the
 frontend and the simulator (never hand-written — drift is the point). Contract
 tests in CI. Every cross-service call gets an explicit timeout, bounded retry
@@ -281,7 +281,7 @@ anyone reads the rest.
 
 ## Phase 9 — Observability and proof
 
-OpenTelemetry traces spanning gateway → kitchen → dispatch, correlation id
+OpenTelemetry traces spanning front-of-house → kitchen → dispatch, correlation id
 threaded through the event envelope from Phase 3. Prometheus metrics, a Grafana
 dashboard in compose. A k6 or Locust run that emits the real number, checked in
 as output, quoted in the README with the command to reproduce it. p50/p95

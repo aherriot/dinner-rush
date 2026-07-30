@@ -45,7 +45,7 @@ class DispatchSnapshot(BaseModel):
 class KitchenSnapshot(BaseModel):
     """
     Passthrough — kitchen's own `TicketOut`/`OvenOut` (FastAPI/Pydantic)
-    are already the wire shape the board wants; gateway doesn't re-model
+    are already the wire shape the board wants; front-of-house doesn't re-model
     them. `None` means kitchen didn't answer (`kitchen_client.get_queue`/
     `get_ovens`'s degrade-not-fail contract), not an empty result.
     """

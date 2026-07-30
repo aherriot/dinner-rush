@@ -1,5 +1,5 @@
 """Scheduled/delayed work only (DECISIONS.md §0003) — the cook-progression
-countdown chain, same division of labour as gateway's Celery app.
+countdown chain, same division of labour as front-of-house's Celery app.
 """
 
 from celery import Celery

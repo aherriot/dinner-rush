@@ -1,10 +1,10 @@
 """config.yaml loader and SPEED handling.
 
-Models only the sections a service needs today (`speed`, `gateway`, `menu`,
-plus `dispatch.restaurant` — the fixed origin point the gateway needs for its
-own `outside_range` distance check before dispatch exists). `simulator` is
-modeled down to exactly one field (`customers.population`, for gateway's seed
-command) — the simulator service itself never imports this module and has
+Models only the sections a service needs today (`speed`, `front_of_house`,
+`menu`, plus `dispatch.restaurant` — the fixed origin point front-of-house
+needs for its own `outside_range` distance check before dispatch exists).
+`simulator` is modeled down to exactly one field (`customers.population`, for
+front-of-house's seed command) — the simulator service itself never imports this module and has
 its own, separate config loader for the full `simulator`/`scenarios` blocks
 (CLAUDE.md §5: no shared domain imports). Other top-level keys (the rest of
 dispatch, scenarios, ...) are left unmodeled until the phase that consumes
@@ -34,7 +34,7 @@ class MenuItemConfig(BaseModel):
     oven_slots: int
 
 
-class GatewayConfig(BaseModel):
+class FrontOfHouseConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     delivery_fee_cents: int
@@ -143,7 +143,7 @@ class KitchenConfig(BaseModel):
 
 
 class SimulatorCustomersConfig(BaseModel):
-    """Only the one field gateway's seed command needs — the simulator itself
+    """Only the one field front-of-house's seed command needs — the simulator itself
     reads the full `simulator`/`scenarios` blocks with its own, unshared
     config loader (CLAUDE.md §5: no shared domain imports)."""
 
@@ -162,7 +162,7 @@ class RootConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     speed: int
-    gateway: GatewayConfig
+    front_of_house: FrontOfHouseConfig
     dispatch: DispatchConfig
     kitchen: KitchenConfig
     menu: list[MenuItemConfig]

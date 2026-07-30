@@ -1,7 +1,7 @@
 """Redis Streams publish/consume and XAUTOCLAIM recovery (DECISIONS.md §0003).
 
 Plain `redis-py` over the stream primitives — no framework dependency, so
-this is reused unmodified by gateway today and by kitchen/dispatch once they
+this is reused unmodified by front-of-house today and by kitchen/dispatch once they
 exist. One stream per aggregate type; consumer groups per subscriber
 (`cg:analytics`, `cg:ws-fanout`, ...). `XAUTOCLAIM` on a timer is the entire
 mechanism behind the `docker compose stop dispatch` recovery demo — a

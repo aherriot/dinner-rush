@@ -8,7 +8,7 @@ import asyncio
 import contextlib
 
 from simulator.arrivals import poisson_arrivals
-from simulator.client.api import GatewayClient
+from simulator.client.api import FrontOfHouseClient
 from simulator.config import CustomersConfig
 from simulator.scenario_overrides import ScenarioOverrideTracker
 from simulator.session import Simulation
@@ -17,7 +17,7 @@ from simulator.stats import Stats, print_periodically
 
 
 async def run(
-    client: GatewayClient,
+    client: FrontOfHouseClient,
     config: CustomersConfig,
     *,
     duration_seconds: float | None = None,

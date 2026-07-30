@@ -2,10 +2,10 @@
 
 FastAPI + Celery + Redis GEO, port 8002. Courier assignment, a detour-
 tolerance trip-batching heuristic, and the time-boxed address grant
-(SPEC.md §1.3, §3.4, §6.2). Extracted from the gateway in Phase 7 — see
+(SPEC.md §1.3, §3.4, §6.2). Extracted from front-of-house in Phase 7 — see
 [PHASES.md](../../docs/PHASES.md) and [ADR 0007](../../docs/adr/0007-dispatch-extraction-and-address-grant.md).
 
-Its own Postgres database (`dispatch`), never gateway's or kitchen's
+Its own Postgres database (`dispatch`), never front-of-house's or kitchen's
 connection string. Redis holds live courier positions (GEO) only — nothing
 about a courier's status or a trip is ever durable anywhere but Postgres.
 

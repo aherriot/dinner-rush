@@ -10,7 +10,7 @@ from collections.abc import Callable
 import httpx
 import pytest
 
-from simulator.client.api import GatewayError
+from simulator.client.api import FrontOfHouseError
 from simulator.speed import SpeedTracker
 
 
@@ -36,8 +36,12 @@ async def test_refresh_updates_current_from_the_client() -> None:
     assert tracker.current == 10
 
 
-@pytest.mark.parametrize("error", [GatewayError(503, "unavailable"), httpx.ConnectError("down")])
-async def test_refresh_keeps_the_last_known_value_on_a_gateway_error(error: Exception) -> None:
+@pytest.mark.parametrize(
+    "error", [FrontOfHouseError(503, "unavailable"), httpx.ConnectError("down")]
+)
+async def test_refresh_keeps_the_last_known_value_on_a_front_of_house_error(
+    error: Exception,
+) -> None:
     client = _FakeClient(error=error)
     tracker = SpeedTracker(client, initial=7)  # type: ignore[arg-type]
 

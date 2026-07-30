@@ -21,7 +21,7 @@ def _order_accepted_envelope(order_id: uuid.UUID) -> EventEnvelope:
         aggregate_id=order_id,
         sequence=2,
         correlation_id=order_id,
-        producer="gateway@0.1.0",
+        producer="front_of_house@0.1.0",
         payload={
             "code": "4400",
             "promised_at": datetime.now(UTC).isoformat(),

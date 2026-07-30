@@ -24,7 +24,7 @@ export function BoardAuthProvider({ children }: { children: ReactNode }) {
   const loadMe = useCallback(async () => {
     const { data } = await api.GET("/api/v1/me");
     // `GET /me`'s declared schema is customer-shaped; the live endpoint
-    // returns `{role, id, name}` for staff (gateway/accounts/views.py's
+    // returns `{role, id, name}` for staff (front_of_house/accounts/views.py's
     // `MeView`) — not modelled precisely in the generated types, so this is
     // a deliberate runtime cast at the one boundary where that mismatch
     // matters.

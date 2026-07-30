@@ -92,7 +92,9 @@ def client(session: Session, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestCl
     def fetch(_url: str, _timeout: float) -> dict[str, object]:
         return jwks_body
 
-    monkeypatch.setattr(auth_module, "_jwks_client", JWKSClient("http://gateway/jwks", fetch=fetch))
+    monkeypatch.setattr(
+        auth_module, "_jwks_client", JWKSClient("http://front-of-house/jwks", fetch=fetch)
+    )
     app.dependency_overrides[get_session] = lambda: session
     test_client = TestClient(app)
     test_client.signing_key = private_key  # type: ignore[attr-defined]

@@ -7,24 +7,24 @@ import type {
 export type NodeId =
   | "simulator"
   | "browser"
-  | "gateway"
+  | "front-of-house"
   | "kitchen"
   | "dispatch"
   | "redis"
-  | "gateway-db"
+  | "front-of-house-db"
   | "kitchen-db"
   | "dispatch-db";
 
 export type EdgeId =
-  | "client-gateway"
-  | "browser-gateway-http"
-  | "browser-gateway-ws"
-  | "gateway-kitchen"
-  | "gateway-dispatch"
-  | "gateway-redis"
+  | "client-front-of-house"
+  | "browser-front-of-house-http"
+  | "browser-front-of-house-ws"
+  | "front-of-house-kitchen"
+  | "front-of-house-dispatch"
+  | "front-of-house-redis"
   | "kitchen-redis"
   | "dispatch-redis"
-  | "gateway-gateway-db"
+  | "front-of-house-front-of-house-db"
   | "kitchen-kitchen-db"
   | "dispatch-dispatch-db";
 
@@ -62,8 +62,8 @@ export const SYSTEM_NODES: NodeDef[] = [
     kind: "service",
   },
   {
-    id: "gateway",
-    label: "Gateway",
+    id: "front-of-house",
+    label: "Front of House",
     sublabel: "Django/DRF · :8000",
     detail: "Django + DRF + Channels on :8000.",
     kind: "service",
@@ -97,8 +97,8 @@ export const SYSTEM_NODES: NodeDef[] = [
     kind: "service",
   },
   {
-    id: "gateway-db",
-    label: "gateway",
+    id: "front-of-house-db",
+    label: "front_of_house",
     sublabel: "Postgres 16",
     detail: "Not shared with kitchen or dispatch (CLAUDE.md §3). Click for the entity relationships.",
     kind: "database",
@@ -146,46 +146,52 @@ export interface EdgeDef {
  * The real topology, not a decorative one — verified against
  * `services/*\/src` rather than assumed (DECISIONS.md §0003/§0004):
  * kitchen and dispatch never receive an HTTP push for domain events, they
- * consume `events:order` themselves (`cg:kitchen`, `cg:dispatch`); gateway's
- * only synchronous calls out are the kitchen capacity quote and the
- * read-only board queries against dispatch. The three `"db"` edges are
- * structural ownership, not traffic — they never carry a pulse (`kind`
- * drives that in `SystemMap.tsx`), same as a foreign-key line in an ER
- * diagram.
+ * consume `events:order` themselves (`cg:kitchen`, `cg:dispatch`);
+ * front-of-house's only synchronous calls out are the kitchen capacity
+ * quote and the read-only board queries against dispatch. The three `"db"`
+ * edges are structural ownership, not traffic — they never carry a pulse
+ * (`kind` drives that in `SystemMap.tsx`), same as a foreign-key line in an
+ * ER diagram.
  */
 export const SYSTEM_EDGES: EdgeDef[] = [
-  { id: "client-gateway", from: "simulator", to: "gateway", kind: "http", label: "place order" },
   {
-    id: "browser-gateway-http",
+    id: "client-front-of-house",
+    from: "simulator",
+    to: "front-of-house",
+    kind: "http",
+    label: "place order",
+  },
+  {
+    id: "browser-front-of-house-http",
     from: "browser",
-    to: "gateway",
+    to: "front-of-house",
     kind: "http",
     label: "snapshot · admin",
   },
   {
-    id: "browser-gateway-ws",
+    id: "browser-front-of-house-ws",
     from: "browser",
-    to: "gateway",
+    to: "front-of-house",
     kind: "ws",
     label: "live events",
   },
   {
-    id: "gateway-kitchen",
-    from: "gateway",
+    id: "front-of-house-kitchen",
+    from: "front-of-house",
     to: "kitchen",
     kind: "http",
     label: "capacity quote",
   },
   {
-    id: "gateway-dispatch",
-    from: "gateway",
+    id: "front-of-house-dispatch",
+    from: "front-of-house",
     to: "dispatch",
     kind: "http",
     label: "board reads",
   },
   {
-    id: "gateway-redis",
-    from: "gateway",
+    id: "front-of-house-redis",
+    from: "front-of-house",
     to: "redis",
     kind: "event",
     label: "events:order",
@@ -204,7 +210,13 @@ export const SYSTEM_EDGES: EdgeDef[] = [
     kind: "event",
     label: "events:order · events:courier",
   },
-  { id: "gateway-gateway-db", from: "gateway", to: "gateway-db", kind: "db", label: "" },
+  {
+    id: "front-of-house-front-of-house-db",
+    from: "front-of-house",
+    to: "front-of-house-db",
+    kind: "db",
+    label: "",
+  },
   { id: "kitchen-kitchen-db", from: "kitchen", to: "kitchen-db", kind: "db", label: "" },
   { id: "dispatch-dispatch-db", from: "dispatch", to: "dispatch-db", kind: "db", label: "" },
 ];
@@ -237,13 +249,17 @@ export interface SystemHealthInput {
  * rather than "unknown" — not because the browser independently probed
  * Postgres, but because it doesn't need to: nearly every request these
  * services answer is a Postgres round trip (the capacity quote, the board
- * reads, the snapshot), so "gateway answered" already *is* evidence its
- * database answered. `SystemMap.tsx`'s tooltip on each database node says
- * so explicitly, so this inference is disclosed, not hidden.
+ * reads, the snapshot), so "front-of-house answered" already *is* evidence
+ * its database answered. `SystemMap.tsx`'s tooltip on each database node
+ * says so explicitly, so this inference is disclosed, not hidden.
  */
 export function computeNodeHealth(input: SystemHealthInput): Record<NodeId, ServiceHealth> {
-  const gatewayDown = input.hasSnapshot === false && input.snapshotFailed;
-  const gateway: ServiceHealth = gatewayDown ? "down" : input.wsConnected ? "healthy" : "degraded";
+  const frontOfHouseDown = input.hasSnapshot === false && input.snapshotFailed;
+  const frontOfHouse: ServiceHealth = frontOfHouseDown
+    ? "down"
+    : input.wsConnected
+      ? "healthy"
+      : "degraded";
 
   const kitchen: ServiceHealth =
     input.ovens === null
@@ -267,13 +283,13 @@ export function computeNodeHealth(input: SystemHealthInput): Record<NodeId, Serv
   const simulator: ServiceHealth = input.recentOrderCount > 0 ? "healthy" : "unknown";
 
   return {
-    gateway,
+    "front-of-house": frontOfHouse,
     kitchen,
     dispatch,
     redis,
     browser,
     simulator,
-    "gateway-db": gateway,
+    "front-of-house-db": frontOfHouse,
     "kitchen-db": kitchen,
     "dispatch-db": dispatch,
   };
@@ -311,7 +327,7 @@ export interface SystemMetricsInput {
  */
 export function computeNodeMetrics(input: SystemMetricsInput): Partial<Record<NodeId, string>> {
   const metrics: Partial<Record<NodeId, string>> = {
-    gateway: `${input.ordersPerMinute} order${input.ordersPerMinute === 1 ? "" : "s"}/min`,
+    "front-of-house": `${input.ordersPerMinute} order${input.ordersPerMinute === 1 ? "" : "s"}/min`,
     simulator: `${input.recentOrderCount} order${input.recentOrderCount === 1 ? "" : "s"}/15s`,
   };
 
@@ -330,7 +346,7 @@ export function computeNodeMetrics(input: SystemMetricsInput): Partial<Record<No
 }
 
 const PRODUCER_PREFIX_TO_NODE: Record<string, NodeId> = {
-  gateway: "gateway",
+  front_of_house: "front-of-house",
   kitchen: "kitchen",
   dispatch: "dispatch",
 };
@@ -362,11 +378,12 @@ const PRODUCER_EDGE: Partial<Record<NodeId, EdgeId>> = {
  * Reconstructs the real hop-by-hop path a live event just took to reach
  * this board, from fields already on the envelope — not a decorative
  * animation. `kitchen`/`dispatch` publish to their own outbox, which a
- * relay carries onto `events:*` on Redis Streams; gateway's `cg:ws-fanout`
- * consumer reads it back off Streams and pushes it down the socket this
- * board already holds open (DECISIONS.md §0003/§0004). An event gateway
- * produced itself (`order.placed`/`order.accepted`/`order.rejected`) skips
- * the first hop because there isn't one.
+ * relay carries onto `events:*` on Redis Streams; front-of-house's
+ * `cg:ws-fanout` consumer reads it back off Streams and pushes it down the
+ * socket this board already holds open (DECISIONS.md §0003/§0004). An
+ * event front-of-house produced itself
+ * (`order.placed`/`order.accepted`/`order.rejected`) skips the first hop
+ * because there isn't one.
  */
 export function pulsePlanForEvent(event: { producer: string }): PulseStep[] {
   const producerNode = producerNodeIdFor(event.producer);
@@ -378,21 +395,21 @@ export function pulsePlanForEvent(event: { producer: string }): PulseStep[] {
     steps.push({ edgeId: producerEdge, delayMs: delay });
     delay += PULSE_STAGE_MS;
   }
-  steps.push({ edgeId: "gateway-redis", delayMs: delay });
+  steps.push({ edgeId: "front-of-house-redis", delayMs: delay });
   delay += PULSE_STAGE_MS;
-  steps.push({ edgeId: "browser-gateway-ws", delayMs: delay });
+  steps.push({ edgeId: "browser-front-of-house-ws", delayMs: delay });
   return steps;
 }
 
 const EVENT_HTTP_EDGE: Partial<Record<string, EdgeId>> = {
-  "order.placed": "client-gateway",
-  "order.accepted": "gateway-kitchen",
-  "order.rejected": "gateway-kitchen",
+  "order.placed": "client-front-of-house",
+  "order.accepted": "front-of-house-kitchen",
+  "order.rejected": "front-of-house-kitchen",
 };
 
 /** The synchronous HTTP leg alongside an event, when that event is the
  * direct result of one: a new order arriving through the public API, or
- * gateway's capacity-quote call to kitchen resolving accept/reject
+ * front-of-house's capacity-quote call to kitchen resolving accept/reject
  * (`kitchen_client.py`). Independent of `pulsePlanForEvent`'s Streams path —
  * both can and do fire for the same event. */
 export function httpPulseForEventType(eventType: string): EdgeId | null {
@@ -401,17 +418,17 @@ export function httpPulseForEventType(eventType: string): EdgeId | null {
 
 /** Fired directly by the board's own snapshot poll (`Board.tsx`'s
  * `fetchSnapshot`), not derived from a socket event — `GET
- * /api/v1/board/snapshot` is gateway aggregating a read from each of
+ * /api/v1/board/snapshot` is front-of-house aggregating a read from each of
  * kitchen and dispatch in the same request. */
 export const SNAPSHOT_PULSE_EDGES: EdgeId[] = [
-  "browser-gateway-http",
-  "gateway-kitchen",
-  "gateway-dispatch",
+  "browser-front-of-house-http",
+  "front-of-house-kitchen",
+  "front-of-house-dispatch",
 ];
 
 /** Fired by an admin action from the board itself (speed change, starting
- * or stopping a chaos scenario) — a `POST` to gateway, nothing more. */
-export const ADMIN_PULSE_EDGES: EdgeId[] = ["browser-gateway-http"];
+ * or stopping a chaos scenario) — a `POST` to front-of-house, nothing more. */
+export const ADMIN_PULSE_EDGES: EdgeId[] = ["browser-front-of-house-http"];
 
 const SIMULATOR_ACTIVITY_WINDOW_MS = 15_000;
 

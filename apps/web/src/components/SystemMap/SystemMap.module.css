@@ -18,7 +18,7 @@
      screen; inside the real board (`.main > section { height: 100% }`,
      Board.module.css) this rarely binds since the panel is usually shorter
      than this already. Matches `SystemMap.tsx`'s computed `VIEW_HEIGHT`
-     (gateway-db/Redis both list 11 lines, the tallest nodes on the map). */
+     (front-of-house-db/Redis both list 11 lines, the tallest nodes on the map). */
   max-height: 700px;
 }
 

@@ -1,6 +1,6 @@
 /**
  * Real per-database schema — every table and column verified directly
- * against the running databases (`\d <table>` against `gateway`/`kitchen`/
+ * against the running databases (`\d <table>` against `front_of_house`/`kitchen`/
  * `dispatch`, 2026-07-30), not reconstructed from ORM naming conventions.
  * Feeds the system map's "entity relationship" modal — the on-canvas node
  * only lists table names (`systemMapState.ts`'s `NodeDef.tables`); this is
@@ -22,7 +22,7 @@ export interface SchemaTable {
   columns: SchemaColumn[];
 }
 
-export const GATEWAY_SCHEMA: SchemaTable[] = [
+export const FRONT_OF_HOUSE_SCHEMA: SchemaTable[] = [
   {
     name: "accounts_staff",
     columns: [
@@ -303,7 +303,7 @@ export const DISPATCH_SCHEMA: SchemaTable[] = [
 ];
 
 export const SCHEMA_BY_NODE_ID: Partial<Record<NodeId, SchemaTable[]>> = {
-  "gateway-db": GATEWAY_SCHEMA,
+  "front-of-house-db": FRONT_OF_HOUSE_SCHEMA,
   "kitchen-db": KITCHEN_SCHEMA,
   "dispatch-db": DISPATCH_SCHEMA,
 };
@@ -329,7 +329,7 @@ export const REDIS_TOPOLOGY: StreamTopology[] = [
       { group: "cg:analytics", does: "Increments an EventTypeCounter row per event type." },
       {
         group: "cg:order-sync",
-        does: "Mirrors kitchen/dispatch transitions back onto gateway's own Order.status.",
+        does: "Mirrors kitchen/dispatch transitions back onto front-of-house's own Order.status.",
       },
       { group: "cg:ws-fanout", does: "Pushes to the per-order channel OrderTracker subscribes to." },
       { group: "cg:ws-board-fanout", does: "Pushes to the single \"board\" channel this board's own socket reads." },

@@ -25,5 +25,5 @@ EXPOSE 8001
 
 # uvicorn is the default CMD; `cli.py relay`/`stream_consumer` and the
 # Celery worker override this via compose.yaml's `command:` on the same
-# image — same pattern as the gateway image (services/gateway/Dockerfile).
+# image — same pattern as the front-of-house image (services/front_of_house/Dockerfile).
 CMD ["uvicorn", "kitchen.main:app", "--host", "0.0.0.0", "--port", "8001"]

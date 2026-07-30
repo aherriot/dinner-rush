@@ -34,13 +34,13 @@ jobs:
       postgres:
         image: postgres:18.4-alpine
         env:
-          POSTGRES_DB: gateway
-          POSTGRES_USER: gateway
-          POSTGRES_PASSWORD: gateway
+          POSTGRES_DB: front_of_house
+          POSTGRES_USER: front_of_house
+          POSTGRES_PASSWORD: front_of_house
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U gateway -d gateway"
+          --health-cmd "pg_isready -U front_of_house -d front_of_house"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
@@ -97,8 +97,8 @@ jobs:
       - name: mypy
         run: uv run mypy
 
-      - name: gateway's checked-in OpenAPI schema is up to date
-        working-directory: services/gateway
+      - name: front-of-house's checked-in OpenAPI schema is up to date
+        working-directory: services/front_of_house
         run: |
           uv run python manage.py spectacular --format openapi-json --file openapi.json --fail-on-warn
           git diff --exit-code -- openapi.json
@@ -157,7 +157,7 @@ jobs:
         working-directory: apps/web
         run: pnpm run tokens:check
 
-      - name: generated gateway API client is up to date
+      - name: generated front-of-house API client is up to date
         if: needs.changes.outputs.frontend == 'true'
         working-directory: apps/web
         run: pnpm run api:check

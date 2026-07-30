@@ -26,14 +26,14 @@ describe("useSystemMapPulses", () => {
       vi.advanceTimersByTime(260);
     });
     expect(result.current.pulses.map((p) => p.edgeId)).toEqual(
-      expect.arrayContaining(["gateway-redis"]),
+      expect.arrayContaining(["front-of-house-redis"]),
     );
 
     act(() => {
       vi.advanceTimersByTime(260);
     });
     expect(result.current.pulses.map((p) => p.edgeId)).toEqual(
-      expect.arrayContaining(["browser-gateway-ws"]),
+      expect.arrayContaining(["browser-front-of-house-ws"]),
     );
 
     act(() => {
@@ -46,11 +46,11 @@ describe("useSystemMapPulses", () => {
     const { result } = renderHook(() => useSystemMapPulses(DURATION_MS));
 
     act(() => {
-      result.current.notifyEvent({ producer: "gateway@1.0.0", event_type: "order.accepted" });
+      result.current.notifyEvent({ producer: "front_of_house@1.0.0", event_type: "order.accepted" });
     });
 
     expect(result.current.pulses.map((p) => p.edgeId)).toEqual(
-      expect.arrayContaining(["gateway-redis", "gateway-kitchen"]),
+      expect.arrayContaining(["front-of-house-redis", "front-of-house-kitchen"]),
     );
   });
 
@@ -58,11 +58,11 @@ describe("useSystemMapPulses", () => {
     const { result } = renderHook(() => useSystemMapPulses(DURATION_MS));
 
     act(() => {
-      result.current.notifyEdges(["browser-gateway-http", "gateway-dispatch"]);
+      result.current.notifyEdges(["browser-front-of-house-http", "front-of-house-dispatch"]);
     });
 
     expect(result.current.pulses.map((p) => p.edgeId).sort()).toEqual(
-      ["browser-gateway-http", "gateway-dispatch"].sort(),
+      ["browser-front-of-house-http", "front-of-house-dispatch"].sort(),
     );
 
     act(() => {

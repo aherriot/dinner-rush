@@ -12,7 +12,7 @@ short human-readable string like `4471`, unique, used in every UI).
 
 ## 1. Domain model
 
-### 1.1 Gateway (Postgres: `gateway`)
+### 1.1 Front-of-house (Postgres: `front_of_house`)
 
 **`customer`** — `id`, `name`, `email` (unique), `phone`, `created_at`
 
@@ -57,9 +57,9 @@ smallint, `status`
 **`ticket`** — kitchen's own view of an order. `id`, `order_id`, `code`,
 `status`, `items` jsonb (snapshot), `total_bake_seconds`, `queued_at`,
 `started_at`, `baked_at`, `ready_at`, `oven_slot_id`, `priority` int
-> The kitchen does **not** read the gateway's `order` table. It builds tickets
+> The kitchen does **not** read front-of-house's `order` table. It builds tickets
 > from `order.accepted` events. Separate database, separate schema, no shared
-> connection string. An agent that gives kitchen a gateway DSN has broken the
+> connection string. An agent that gives kitchen a front-of-house DSN has broken the
 > project.
 
 **`processed_event`** — kitchen's own idempotency table
@@ -93,8 +93,8 @@ this table raise `IllegalTransition` — there is no permissive default.
 | From | Event | To | Guard | Actor |
 | --- | --- | --- | --- | --- |
 | — | `place` | `placed` | valid cart, all items available | customer |
-| `placed` | `accept` | `accepted` | capacity quote OK | gateway |
-| `placed` | `reject` | `rejected` | no capacity / item out / out of range | gateway |
+| `placed` | `accept` | `accepted` | capacity quote OK | front-of-house |
+| `placed` | `reject` | `rejected` | no capacity / item out / out of range | front-of-house |
 | `accepted` | `enqueue` | `queued` | ticket created | kitchen |
 | `queued` | `start_prep` | `prepping` | station free | kitchen |
 | `prepping` | `start_bake` | `baking` | **oven slot claimed** | kitchen |
@@ -125,7 +125,7 @@ street, and needs a new courier. That case is worth a test.
 Versioned under `/api/v1`. All errors use RFC 7807 `application/problem+json`
 with `type`, `title`, `status`, `detail`, `instance`, `correlation_id`.
 
-### 3.1 Gateway — public (Django + DRF, port 8000)
+### 3.1 Front-of-house — public (Django + DRF, port 8000)
 
 | Method | Path | Role | Notes |
 | --- | --- | --- | --- |
@@ -142,7 +142,7 @@ with `type`, `title`, `status`, `detail`, `instance`, `correlation_id`.
 > is a successful, well-formed, designed response body — not a 4xx, not a 503.
 > Getting this wrong inverts the whole thesis.
 
-### 3.2 Gateway — admin (manager only)
+### 3.2 Front-of-house — admin (manager only)
 
 | Method | Path | Notes |
 | --- | --- | --- |
@@ -156,9 +156,9 @@ with `type`, `title`, `status`, `detail`, `instance`, `correlation_id`.
 
 | Method | Path | Caller | Notes |
 | --- | --- | --- | --- |
-| `GET` | `/queue` | gateway, board | tickets ordered by priority |
-| `GET` | `/ovens` | gateway, board | slot occupancy + `frees_at` |
-| `POST` | `/capacity/quote` | gateway | `{items[]}` → `{can_accept, promised_at, queue_depth, projected_wait_s}` |
+| `GET` | `/queue` | front-of-house, board | tickets ordered by priority |
+| `GET` | `/ovens` | front-of-house, board | slot occupancy + `frees_at` |
+| `POST` | `/capacity/quote` | front-of-house | `{items[]}` → `{can_accept, promised_at, queue_depth, projected_wait_s}` |
 | `POST` | `/tickets/{id}/advance` | staff | manual override, manager/kitchen only |
 | `GET` | `/healthz` `/readyz` | compose | |
 
@@ -201,27 +201,27 @@ All payloads below are the `payload` field; the envelope wraps them.
 
 | Event | Producer | Payload | Consumers |
 | --- | --- | --- | --- |
-| `order.placed` | gateway | `code, customer_id, items[], total_cents, grid_x, grid_y` | analytics, ws |
-| `order.accepted` | gateway | `code, promised_at, items[]` | **kitchen**, analytics, ws |
-| `order.rejected` | gateway | `code, reason, queue_depth` | analytics, ws |
-| `order.queued` | kitchen | `code, position, projected_start_at` | gateway, ws |
+| `order.placed` | front-of-house | `code, customer_id, items[], total_cents, grid_x, grid_y` | analytics, ws |
+| `order.accepted` | front-of-house | `code, promised_at, items[]` | **kitchen**, analytics, ws |
+| `order.rejected` | front-of-house | `code, reason, queue_depth` | analytics, ws |
+| `order.queued` | kitchen | `code, position, projected_start_at` | front-of-house, ws |
 | `item.started` | kitchen | `code, item_id, station` | ws |
-| `order.baking` | kitchen | `code, oven_id, slot_index, frees_at` | gateway, ws |
-| `order.baked` | kitchen | `code, actual_bake_s` | gateway, analytics, ws |
-| `order.ready` | kitchen | `code, grid_x, grid_y, ready_at` | **dispatch**, gateway, notifier, analytics, ws |
+| `order.baking` | kitchen | `code, oven_id, slot_index, frees_at` | front-of-house, ws |
+| `order.baked` | kitchen | `code, actual_bake_s` | front-of-house, analytics, ws |
+| `order.ready` | kitchen | `code, grid_x, grid_y, ready_at` | **dispatch**, front-of-house, notifier, analytics, ws |
 | `oven.slot_freed` | kitchen | `oven_id, slot_index` | kitchen(alloc), ws |
-| `oven.down` / `oven.restored` | kitchen | `oven_id, slot_count` | gateway, ws |
+| `oven.down` / `oven.restored` | kitchen | `oven_id, slot_count` | front-of-house, ws |
 | `courier.online` / `courier.offline` | dispatch | `courier_id, x, y` | dispatch(reassign), ws |
-| `courier.assigned` | dispatch | `code, courier_id, eta_at, distance_cells` | gateway, notifier, ws |
-| `order.picked_up` | dispatch | `code, courier_id, at` | gateway, notifier, ws |
-| `order.delivering` | dispatch | `code, courier_id, eta_at` | gateway, ws |
-| `order.delivered` | dispatch | `code, courier_id, total_elapsed_s` | gateway, analytics, notifier, ws |
-| `order.failed` | dispatch | `code, reason` | gateway, analytics, ws |
-| `order.late` | gateway | `code, promised_at, projected_at` | analytics, ws |
+| `courier.assigned` | dispatch | `code, courier_id, eta_at, distance_cells` | front-of-house, notifier, ws |
+| `order.picked_up` | dispatch | `code, courier_id, at` | front-of-house, notifier, ws |
+| `order.delivering` | dispatch | `code, courier_id, eta_at` | front-of-house, ws |
+| `order.delivered` | dispatch | `code, courier_id, total_elapsed_s` | front-of-house, analytics, notifier, ws |
+| `order.failed` | dispatch | `code, reason` | front-of-house, analytics, ws |
+| `order.late` | front-of-house | `code, promised_at, projected_at` | analytics, ws |
 | `station.down` | kitchen | `station_id` | ws |
 
 **`order.ready` is the showpiece fan-out** — five consumers, none aware of each
-other: dispatch assigns a courier, gateway advances the order, the notifier
+other: dispatch assigns a courier, front-of-house advances the order, the notifier
 tells the customer, analytics records cook time, and the websocket layer
 repaints three surfaces. Make it easy to point at.
 
@@ -230,7 +230,7 @@ repaints three surfaces. Make it easy to point at.
 
 | Consumer | Side effect | Guarantee |
 | --- | --- | --- |
-| kitchen, gateway, dispatch, analytics | Postgres writes | **effectively-once** (dedup in the same txn) |
+| kitchen, front-of-house, dispatch, analytics | Postgres writes | **effectively-once** (dedup in the same txn) |
 | notifier | outbound notification | **at-least-once** — may duplicate, and that is stated, not hidden |
 | ws-fanout | in-memory push | at-least-once, idempotent by `event_id` client-side |
 
@@ -300,7 +300,7 @@ time-boxed rather than merely lifecycle-boxed.
 
 ### 6.3 Service-to-service auth
 
-Gateway signs RS256 JWTs and publishes a JWKS at `/.well-known/jwks.json`.
+Front-of-house signs RS256 JWTs and publishes a JWKS at `/.well-known/jwks.json`.
 Kitchen and dispatch verify against it and cache the key. Claims: `sub`, `role`,
 `scope[]`, `exp`, `correlation_id`.
 

@@ -1,9 +1,9 @@
-"""Kitchen's own settings — its own Postgres, never a gateway connection
+"""Kitchen's own settings — its own Postgres, never a front-of-house connection
 string (CLAUDE.md §5).
 
-`KITCHEN_POSTGRES_*` rather than the bare `POSTGRES_*` gateway uses: inside
+`KITCHEN_POSTGRES_*` rather than the bare `POSTGRES_*` front-of-house uses: inside
 Docker each service has its own isolated environment so it wouldn't matter,
-but a single `uv run pytest` at the repo root runs gateway's and kitchen's
+but a single `uv run pytest` at the repo root runs front-of-house's and kitchen's
 tests in one process against two different Postgres servers at once, and
 they need distinct env var names to both be reachable simultaneously.
 """
@@ -25,7 +25,7 @@ DATABASE_URL = os.environ.get(
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 CELERY_BROKER_URL = REDIS_URL
 
-# Gateway is the only JWT signer (SPEC.md §6.3) — kitchen fetches and caches
+# Front-of-house is the only JWT signer (SPEC.md §6.3) — kitchen fetches and caches
 # its public key from here rather than sharing a secret.
-GATEWAY_URL = os.environ.get("GATEWAY_URL", "http://gateway:8000")
-JWKS_URL = f"{GATEWAY_URL}/.well-known/jwks.json"
+FRONT_OF_HOUSE_URL = os.environ.get("FRONT_OF_HOUSE_URL", "http://front-of-house:8000")
+JWKS_URL = f"{FRONT_OF_HOUSE_URL}/.well-known/jwks.json"

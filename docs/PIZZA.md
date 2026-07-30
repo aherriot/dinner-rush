@@ -17,7 +17,7 @@ imports. It authenticates and calls the same public API a real customer, courier
 or kitchen tablet would:
 
 ```
-simulator ──HTTP──► gateway API ──► the real system
+simulator ──HTTP──► front-of-house API ──► the real system
           ──HTTP──► courier API
           ──HTTP──► kitchen display API
 ```
@@ -40,9 +40,9 @@ Three consequences, and they're the whole argument for this project:
 The three do genuinely different kinds of work — that's the test, and this
 domain passes it more cleanly than any other idea in the folder.
 
-| Service     | Stack            | The work it does                                                                                | Why it can't live in the gateway                                                         |
+| Service     | Stack            | The work it does                                                                                | Why it can't live in front-of-house                                                      |
 | ----------- | ---------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `gateway`   | Django + DRF     | Menu, customers, orders, staff, pricing, auth, admin                                            | —                                                                                        |
+| `front-of-house` | Django + DRF | Menu, customers, orders, staff, pricing, auth, admin                                            | —                                                                                        |
 | `kitchen`   | FastAPI + Celery | **Constrained-resource scheduling.** Finite oven slots, per-item cook times, station contention | It runs a tick loop and holds contended state. It's a scheduler, not a CRUD app          |
 | `dispatch`  | FastAPI          | **Geospatial assignment.** Nearest available courier, trip batching, ETA and re-ETA             | Different data structures (Redis GEO), different scaling profile, different read pattern |
 | `simulator` | Python, no DB    | Spawns customers, drives couriers, injects chaos                                                | It's a client. It must be separate or the whole premise collapses                        |

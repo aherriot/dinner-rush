@@ -35,7 +35,7 @@ def client(session: Session, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestCl
         return jwks_body
 
     monkeypatch.setattr(
-        auth_module, "_jwks_client", JWKSClient("http://gateway/jwks", fetch=fetch)
+        auth_module, "_jwks_client", JWKSClient("http://front-of-house/jwks", fetch=fetch)
     )
     app.dependency_overrides[get_session] = lambda: session
     test_client = TestClient(app)
@@ -55,7 +55,7 @@ def test_capacity_quote_401s_without_a_bearer_token(client: TestClient) -> None:
 
 def test_capacity_quote_401s_with_a_badly_signed_token(client: TestClient) -> None:
     other_private_key, _other_public = _keypair()
-    token = _token(other_private_key, sub="gateway", role="service", scope=["kitchen:call"])
+    token = _token(other_private_key, sub="front_of_house", role="service", scope=["kitchen:call"])
 
     response = client.post(
         "/capacity/quote", json={"items": []}, headers={"Authorization": f"Bearer {token}"}
@@ -64,7 +64,9 @@ def test_capacity_quote_401s_with_a_badly_signed_token(client: TestClient) -> No
 
 
 def test_capacity_quote_403s_without_the_kitchen_call_scope(client: TestClient) -> None:
-    token = _token(_signing_key(client), sub="gateway", role="service", scope=["kitchen:read"])
+    token = _token(
+        _signing_key(client), sub="front_of_house", role="service", scope=["kitchen:read"]
+    )
 
     response = client.post(
         "/capacity/quote", json={"items": []}, headers={"Authorization": f"Bearer {token}"}
@@ -82,7 +84,9 @@ def test_capacity_quote_403s_for_a_non_service_role(client: TestClient) -> None:
 
 
 def test_capacity_quote_200s_with_a_correctly_scoped_service_token(client: TestClient) -> None:
-    token = _token(_signing_key(client), sub="gateway", role="service", scope=["kitchen:call"])
+    token = _token(
+        _signing_key(client), sub="front_of_house", role="service", scope=["kitchen:call"]
+    )
 
     response = client.post(
         "/capacity/quote", json={"items": []}, headers={"Authorization": f"Bearer {token}"}
@@ -91,7 +95,9 @@ def test_capacity_quote_200s_with_a_correctly_scoped_service_token(client: TestC
 
 
 def test_queue_403s_for_a_capacity_only_scope(client: TestClient) -> None:
-    token = _token(_signing_key(client), sub="gateway", role="service", scope=["kitchen:call"])
+    token = _token(
+        _signing_key(client), sub="front_of_house", role="service", scope=["kitchen:call"]
+    )
 
     response = client.get("/queue", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 403
@@ -103,7 +109,9 @@ def test_healthz_needs_no_token(client: TestClient) -> None:
 
 
 def test_oven_status_403s_without_the_kitchen_advance_scope(client: TestClient) -> None:
-    token = _token(_signing_key(client), sub="gateway", role="service", scope=["kitchen:read"])
+    token = _token(
+        _signing_key(client), sub="front_of_house", role="service", scope=["kitchen:read"]
+    )
 
     response = client.post(
         f"/ovens/{uuid.uuid4()}/status",
@@ -127,7 +135,9 @@ def test_oven_status_403s_for_a_non_service_role(client: TestClient) -> None:
 
 
 def test_oven_status_404s_with_a_correctly_scoped_service_token(client: TestClient) -> None:
-    token = _token(_signing_key(client), sub="gateway", role="service", scope=["kitchen:advance"])
+    token = _token(
+        _signing_key(client), sub="front_of_house", role="service", scope=["kitchen:advance"]
+    )
 
     response = client.post(
         f"/ovens/{uuid.uuid4()}/status",

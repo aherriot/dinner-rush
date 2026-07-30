@@ -11,7 +11,7 @@ from simulator.runner import run
 class _FastFakeClient:
     """A client whose every call resolves instantly — real `asyncio` event
     loop, no real network, so the runner's task orchestration (spawn, stop,
-    drain) is exercised end to end without a real gateway."""
+    drain) is exercised end to end without a real front-of-house."""
 
     async def get_speed(self) -> int:
         return 1
@@ -112,7 +112,7 @@ async def test_the_first_arrival_already_uses_the_speed_set_before_the_run_start
     (`speed.run_forever`) — a poll that hadn't necessarily completed by the
     time the arrivals loop took its first synchronous read of
     `speed.current`. That made the very first Poisson interarrival always
-    drawn at speed=1 regardless of what SPEED gateway actually reported,
+    drawn at speed=1 regardless of what SPEED front-of-house actually reported,
     which reads as "the fast setting isn't doing anything" for however
     long that one draw takes (mean 60s at this test's baseline rate).
 

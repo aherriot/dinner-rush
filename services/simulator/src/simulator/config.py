@@ -4,7 +4,7 @@ CLAUDE.md §5: the simulator "imports nothing from `services/`" and holds no
 shared domain code; the small amount of YAML-path-walking duplicated from
 `dinner_rush_core.config` here is the price of that isolation being real
 rather than asserted. Only `simulator` and `scenarios` are modeled — every
-other top-level key (`gateway`, `kitchen`, `menu`, ...) belongs to services
+other top-level key (`front_of_house`, `kitchen`, `menu`, ...) belongs to services
 this process never touches and is silently dropped by `extra="ignore"`.
 """
 
@@ -138,7 +138,7 @@ def apply_scenario_overrides(name: str) -> ScenarioRun:
         raise UnknownScenarioError(f"no scenario named {name!r} in config.yaml")
     if name not in _SUPPORTED_SCENARIOS:
         reason = (
-            "it has `actions`, which need gateway's admin scenario endpoint (Phase 10)"
+            "it has `actions`, which need front-of-house's admin scenario endpoint (Phase 10)"
             if scenario.actions
             else "it is `manual`, see config.example.yaml"
             if scenario.manual

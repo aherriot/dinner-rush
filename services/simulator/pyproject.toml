@@ -1,7 +1,7 @@
 [project]
 name = "simulator"
 version = "0.1.0"
-description = "Ordinary API client generating Poisson-arrival load against gateway's public API (CLAUDE.md §5, PHASES.md Phase 6)"
+description = "Ordinary API client generating Poisson-arrival load against front-of-house's public API (CLAUDE.md §5, PHASES.md Phase 6)"
 requires-python = ">=3.13"
 dependencies = [
     "httpx>=0.28,<1",

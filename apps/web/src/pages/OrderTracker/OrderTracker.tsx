@@ -12,7 +12,7 @@ import styles from "./OrderTracker.module.css";
 
 type Order = components["schemas"]["Order"];
 
-const GATEWAY_WS_URL = (import.meta.env.VITE_GATEWAY_URL ?? "http://localhost:8000").replace(
+const FRONT_OF_HOUSE_WS_URL = (import.meta.env.VITE_FRONT_OF_HOUSE_URL ?? "http://localhost:8000").replace(
   /^http/,
   "ws",
 );
@@ -62,7 +62,7 @@ export function OrderTracker() {
 
       const params = new URLSearchParams({ token });
       if (lastEventIdRef.current) params.set("last_event_id", lastEventIdRef.current);
-      socket = new WebSocket(`${GATEWAY_WS_URL}/ws/orders/${code}/?${params.toString()}`);
+      socket = new WebSocket(`${FRONT_OF_HOUSE_WS_URL}/ws/orders/${code}/?${params.toString()}`);
 
       socket.onmessage = (message: MessageEvent<string>) => {
         // `stream_id` is the Redis stream position (`<ms>-<seq>`) — the only

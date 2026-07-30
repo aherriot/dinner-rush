@@ -34,7 +34,7 @@ def client(session: Session, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestCl
         return jwks_body
 
     monkeypatch.setattr(
-        auth_module, "_jwks_client", JWKSClient("http://gateway/jwks", fetch=fetch)
+        auth_module, "_jwks_client", JWKSClient("http://front-of-house/jwks", fetch=fetch)
     )
     app.dependency_overrides[get_session] = lambda: session
     test_client = TestClient(app)
@@ -60,7 +60,7 @@ def test_couriers_list_403s_with_a_courier_role_instead_of_service(client: TestC
 
 def test_couriers_list_200s_with_the_dispatch_read_scope(client: TestClient) -> None:
     token = _token(
-        _signing_key(client), sub="gateway", role="service", scope=["dispatch:read"]
+        _signing_key(client), sub="front_of_house", role="service", scope=["dispatch:read"]
     )
     response = client.get("/couriers", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
@@ -68,7 +68,7 @@ def test_couriers_list_200s_with_the_dispatch_read_scope(client: TestClient) -> 
 
 def test_my_trips_403s_for_a_service_token(client: TestClient) -> None:
     token = _token(
-        _signing_key(client), sub="gateway", role="service", scope=["dispatch:read"]
+        _signing_key(client), sub="front_of_house", role="service", scope=["dispatch:read"]
     )
     response = client.get("/couriers/me/trips", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 403

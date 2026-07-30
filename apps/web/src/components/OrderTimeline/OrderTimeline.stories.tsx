@@ -89,5 +89,5 @@ export const RejectedAtCapacity: Story = { args: { events: REJECTED_AT_CAPACITY 
 export const Loading: Story = { args: { state: "loading" } };
 export const Empty: Story = { args: { state: "empty" } };
 export const Error: Story = {
-  args: { state: "error", errorMessage: "Couldn't reach the gateway." },
+  args: { state: "error", errorMessage: "Couldn't reach front of house." },
 };

@@ -1,6 +1,6 @@
 """Scheduled/delayed work only (DECISIONS.md §0003) — assignment retry and
 the courier motion autopilot (ADR 0007 §6), same division of labour as
-gateway's and kitchen's Celery apps.
+front-of-house's and kitchen's Celery apps.
 """
 
 from celery import Celery

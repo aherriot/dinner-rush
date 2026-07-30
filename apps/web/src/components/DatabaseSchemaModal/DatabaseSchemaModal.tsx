@@ -17,7 +17,7 @@ export interface SchemaTable {
 export interface DatabaseSchemaModalProps {
   open: boolean;
   onClose: () => void;
-  /** The real Postgres database name (e.g. "gateway"), used in the title. */
+  /** The real Postgres database name (e.g. "front_of_house"), used in the title. */
   databaseName: string;
   tables: SchemaTable[];
 }
@@ -28,7 +28,7 @@ export interface DatabaseSchemaModalProps {
  * database (`schemaData.ts`), not reconstructed from ORM naming
  * conventions. Each foreign-key column is annotated inline
  * (`table.column`) rather than drawn as a routed line between boxes: with
- * up to 11 tables (gateway) an auto-routed diagram would need real layout
+ * up to 11 tables (front_of_house) an auto-routed diagram would need real layout
  * work to stay readable, and a plain annotation says the same thing without
  * the risk of crossing, overlapping lines.
  */

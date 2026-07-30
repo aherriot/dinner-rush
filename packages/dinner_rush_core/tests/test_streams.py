@@ -20,7 +20,7 @@ def _envelope(sequence: int = 1) -> EventEnvelope:
         aggregate_id=uuid.uuid4(),
         sequence=sequence,
         correlation_id=uuid.uuid4(),
-        producer="gateway@0.1.0",
+        producer="front_of_house@0.1.0",
         payload={"code": "4400"},
     )
 

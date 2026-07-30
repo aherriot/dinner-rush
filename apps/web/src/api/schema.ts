@@ -143,7 +143,7 @@ export interface paths {
         /**
          * @description `GET /board/snapshot` — kitchen/manager only. Kitchen/dispatch
          *     sections are `None` when that service didn't answer: a degraded panel,
-         *     not a failed request — the same "keep gateway working when a peer
+         *     not a failed request — the same "keep front-of-house working when a peer
          *     isn't" story as order acceptance's capacity-quote fallback, and the
          *     whole point of Streams over pub/sub for Phase 10's recovery demo.
          */
@@ -333,7 +333,7 @@ export interface components {
         };
         /**
          * @description Passthrough — kitchen's own `TicketOut`/`OvenOut` (FastAPI/Pydantic)
-         *     are already the wire shape the board wants; gateway doesn't re-model
+         *     are already the wire shape the board wants; front-of-house doesn't re-model
          *     them. `None` means kitchen didn't answer (`kitchen_client.get_queue`/
          *     `get_ovens`'s degrade-not-fail contract), not an empty result.
          */

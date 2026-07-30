@@ -15,7 +15,7 @@ import uuid
 from collections import deque
 from collections.abc import Awaitable, Callable
 
-from simulator.client.api import GatewayClient, GatewayError
+from simulator.client.api import FrontOfHouseClient, FrontOfHouseError
 from simulator.client.models import MenuItem, OrderItemRequest
 from simulator.config import CustomersConfig
 from simulator.population import customer_email
@@ -35,7 +35,7 @@ class Simulation:
 
     def __init__(
         self,
-        client: GatewayClient,
+        client: FrontOfHouseClient,
         config: CustomersConfig,
         speed: SpeedTracker,
         stats: Stats,
@@ -77,7 +77,7 @@ class Simulation:
         try:
             token = await self._authenticated(email)
             address_id = await self._address_for(email, token)
-        except GatewayError:
+        except FrontOfHouseError:
             self._stats.errors += 1
             return
 
@@ -98,7 +98,7 @@ class Simulation:
 
         try:
             result = await self._client.create_order(token, address_id=address_id, items=items)
-        except GatewayError:
+        except FrontOfHouseError:
             self._stats.errors += 1
             return
 

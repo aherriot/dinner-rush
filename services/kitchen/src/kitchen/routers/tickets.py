@@ -20,7 +20,7 @@ def advance_ticket_manually(
 
     Board calling this directly with a staff token is a Phase 8 concern (see
     `kitchen.auth`'s module docstring); until then it's reached only through
-    gateway's own service token, scoped to `kitchen:advance`.
+    front-of-house's own service token, scoped to `kitchen:advance`.
     """
     ticket = session.get(Ticket, ticket_id)
     if ticket is None:

@@ -56,7 +56,7 @@ const REDIS_DISTINCT_GROUPS = Array.from(
   new Set(REDIS_TOPOLOGY.flatMap((entry) => entry.groups.map((g) => g.group))),
 );
 
-const GATEWAY_DB_HEIGHT = heightForListLines(SCHEMA_BY_NODE_ID["gateway-db"]?.length ?? 0);
+const FRONT_OF_HOUSE_DB_HEIGHT = heightForListLines(SCHEMA_BY_NODE_ID["front-of-house-db"]?.length ?? 0);
 const KITCHEN_DB_HEIGHT = heightForListLines(SCHEMA_BY_NODE_ID["kitchen-db"]?.length ?? 0);
 const DISPATCH_DB_HEIGHT = heightForListLines(SCHEMA_BY_NODE_ID["dispatch-db"]?.length ?? 0);
 // "Streams (N):" header + one line per stream + "Groups (N):" header + one
@@ -69,13 +69,13 @@ const REDIS_HEIGHT = heightForListLines(2 + REDIS_TOPOLOGY.length + REDIS_DISTIN
  * Three independent column stacks (left/mid/right), top-anchored: each
  * node's own real content height determines how much room it needs, and
  * neighbouring columns are never affected by one column's taller node
- * (gateway-db and Redis both list a lot; Simulator/Browser/Kitchen/Dispatch
+ * (front-of-house-db and Redis both list a lot; Simulator/Browser/Kitchen/Dispatch
  * don't, and shouldn't be stretched to match). */
 const COL_X = { left: 120, mid: 440, right: 760 };
 
 const TOP_MARGIN = 30;
-const GATEWAY_DB_TOP = TOP_MARGIN;
-const ROW1_TOP = GATEWAY_DB_TOP + GATEWAY_DB_HEIGHT + 30;
+const FRONT_OF_HOUSE_DB_TOP = TOP_MARGIN;
+const ROW1_TOP = FRONT_OF_HOUSE_DB_TOP + FRONT_OF_HOUSE_DB_HEIGHT + 30;
 const ROW1_BOTTOM = ROW1_TOP + SERVICE_HEIGHT;
 // Clearance for the "capacity quote" / "events:order" / "board reads" edge
 // labels between the two service rows.
@@ -84,9 +84,9 @@ const ROW2_BOTTOM = ROW2_TOP + SERVICE_HEIGHT;
 const DB_ROW2_TOP = ROW2_BOTTOM + 30;
 
 const NODE_TOP: Record<NodeId, number> = {
-  "gateway-db": GATEWAY_DB_TOP,
+  "front-of-house-db": FRONT_OF_HOUSE_DB_TOP,
   simulator: ROW1_TOP,
-  gateway: ROW1_TOP,
+  "front-of-house": ROW1_TOP,
   browser: ROW1_TOP,
   kitchen: ROW2_TOP,
   redis: ROW2_TOP,
@@ -96,9 +96,9 @@ const NODE_TOP: Record<NodeId, number> = {
 };
 
 const NODE_HEIGHT: Record<NodeId, number> = {
-  "gateway-db": GATEWAY_DB_HEIGHT,
+  "front-of-house-db": FRONT_OF_HOUSE_DB_HEIGHT,
   simulator: SERVICE_HEIGHT,
-  gateway: SERVICE_HEIGHT,
+  "front-of-house": SERVICE_HEIGHT,
   browser: SERVICE_HEIGHT,
   kitchen: SERVICE_HEIGHT,
   redis: REDIS_HEIGHT,
@@ -108,9 +108,9 @@ const NODE_HEIGHT: Record<NodeId, number> = {
 };
 
 const NODE_WIDTH: Record<NodeId, number> = {
-  "gateway-db": DB_WIDTH,
+  "front-of-house-db": DB_WIDTH,
   simulator: SERVICE_WIDTH,
-  gateway: SERVICE_WIDTH,
+  "front-of-house": SERVICE_WIDTH,
   browser: SERVICE_WIDTH,
   kitchen: SERVICE_WIDTH,
   redis: SERVICE_WIDTH,
@@ -138,14 +138,14 @@ const VIEW_HEIGHT =
   Math.max(ROW2_TOP + REDIS_HEIGHT, DB_ROW2_TOP + Math.max(KITCHEN_DB_HEIGHT, DISPATCH_DB_HEIGHT)) +
   TOP_MARGIN;
 
-/** Gateway and the browser have two edges between them (an HTTP leg and a
+/** Front-of-house and the browser have two edges between them (an HTTP leg and a
  * websocket leg, `systemMapState.SYSTEM_EDGES`) — without an offset they'd
  * draw as one line with two labels stacked illegibly on top of each other.
  * A small perpendicular nudge, applied to that one node pair only, turns
  * them into two parallel lines with their own label rows. */
 const EDGE_OFFSET: Partial<Record<EdgeDef["id"], number>> = {
-  "browser-gateway-http": -8,
-  "browser-gateway-ws": 8,
+  "browser-front-of-house-http": -8,
+  "browser-front-of-house-ws": 8,
 };
 
 /** SMIL `<animate dur>` can't read the CSS custom property this ~matches
@@ -160,13 +160,13 @@ const HEALTH_META: Record<ServiceHealth, { glyph: string; label: string }> = {
 };
 
 /** Per-node copy for states whose generic label would mislead — an idle
- * simulator isn't "unknown" as a problem, and a websocket-down gateway
+ * simulator isn't "unknown" as a problem, and a websocket-down front-of-house
  * isn't fully "degraded" in the alarming sense, it's the exact fallback
  * DECISIONS.md §0003 describes (REST polling picks up the slack). */
 const LABEL_OVERRIDES: Partial<Record<NodeId, Partial<Record<ServiceHealth, string>>>> = {
   simulator: { healthy: "Sending load", unknown: "Idle" },
   browser: { degraded: "Reconnecting" },
-  gateway: { degraded: "Polling REST" },
+  "front-of-house": { degraded: "Polling REST" },
   redis: { degraded: "No signal" },
 };
 

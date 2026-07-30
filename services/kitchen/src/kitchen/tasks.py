@@ -1,6 +1,6 @@
 """Celery-scheduled cook progression: `queued -> prepping -> baking -> boxed
 -> ready` (SPEC.md §2), kitchen's slice of the FSM — the rest of what
-gateway's Phase 3 stand-in used to do entirely by itself.
+front-of-house's Phase 3 stand-in used to do entirely by itself.
 
 Real durations, scaled by `SPEED` at the point each step is scheduled
 (SPEC.md §5), never stored pre-scaled. `start_bake` claims a real oven slot

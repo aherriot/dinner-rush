@@ -33,14 +33,14 @@ def _jwks_client_for(public_key: rsa.RSAPublicKey, *, calls: list[int] | None = 
             calls.append(1)
         return jwks_body
 
-    return JWKSClient("http://gateway/.well-known/jwks.json", fetch=fetch)
+    return JWKSClient("http://front-of-house/.well-known/jwks.json", fetch=fetch)
 
 
 def test_verify_token_round_trips_all_claims() -> None:
     private_key, public_key = _keypair()
     token = _sign(
         private_key,
-        sub="gateway",
+        sub="front_of_house",
         role="service",
         scope=["kitchen:call"],
         correlation_id="corr-123",
@@ -49,7 +49,7 @@ def test_verify_token_round_trips_all_claims() -> None:
     claims = verify_token(token, _jwks_client_for(public_key))
 
     assert claims == Claims(
-        sub="gateway",
+        sub="front_of_house",
         role="service",
         scope=["kitchen:call"],
         exp=claims.exp,
@@ -62,7 +62,7 @@ def test_verify_token_round_trips_all_claims() -> None:
 def test_verify_token_rejects_a_signature_from_the_wrong_key() -> None:
     _private_key, public_key = _keypair()
     other_private_key, _other_public_key = _keypair()
-    forged = _sign(other_private_key, sub="gateway", role="service", scope=[])
+    forged = _sign(other_private_key, sub="front_of_house", role="service", scope=[])
 
     with pytest.raises(TokenVerificationError):
         verify_token(forged, _jwks_client_for(public_key))
@@ -71,7 +71,7 @@ def test_verify_token_rejects_a_signature_from_the_wrong_key() -> None:
 def test_verify_token_rejects_an_expired_token() -> None:
     private_key, public_key = _keypair()
     expired = jwt.encode(
-        {"sub": "gateway", "role": "service", "scope": [], "exp": int(time.time()) - 10},
+        {"sub": "front_of_house", "role": "service", "scope": [], "exp": int(time.time()) - 10},
         private_key,
         algorithm="RS256",
         headers={"kid": KID},
@@ -83,7 +83,7 @@ def test_verify_token_rejects_an_expired_token() -> None:
 
 def test_verify_token_rejects_a_token_missing_role() -> None:
     private_key, public_key = _keypair()
-    token = _sign(private_key, sub="gateway", scope=[])
+    token = _sign(private_key, sub="front_of_house", scope=[])
 
     with pytest.raises(TokenVerificationError):
         verify_token(token, _jwks_client_for(public_key))
@@ -92,7 +92,7 @@ def test_verify_token_rejects_a_token_missing_role() -> None:
 def test_verify_token_rejects_an_unknown_kid() -> None:
     private_key, public_key = _keypair()
     token = jwt.encode(
-        {"sub": "gateway", "role": "service", "scope": [], "exp": int(time.time()) + 60},
+        {"sub": "front_of_house", "role": "service", "scope": [], "exp": int(time.time()) + 60},
         private_key,
         algorithm="RS256",
         headers={"kid": "some-other-kid"},

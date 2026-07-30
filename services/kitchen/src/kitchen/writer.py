@@ -1,7 +1,7 @@
 """Write an outbox row inside the caller's own transaction (DECISIONS.md §0004).
 
-Same pattern as `gateway.eventing.writer`, same table shape, different
-database — kitchen's `outbox` table, never gateway's.
+Same pattern as `front_of_house.eventing.writer`, same table shape, different
+database — kitchen's `outbox` table, never front-of-house's.
 """
 
 from datetime import UTC, datetime

@@ -197,7 +197,7 @@ class EventEnvelope(BaseModel):
     sequence:       int           # per-aggregate monotonic
     correlation_id: UUID          # whole causal chain; threads into OTel
     causation_id:   UUID | None   # the event that caused this one
-    producer:       str           # "gateway@1.4.2"
+    producer:       str           # "front_of_house@1.4.2"
     payload:        dict
 ```
 

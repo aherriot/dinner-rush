@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 
-from simulator.client.api import GatewayError, OrderResult
+from simulator.client.api import FrontOfHouseError, OrderResult
 from simulator.client.models import Address, Customer, MenuItem, Order, OrderStatusEnum
 from simulator.config import CustomersConfig, ThinkTimeConfig
 from simulator.session import Simulation
@@ -45,7 +45,7 @@ class _FakeClient:
     async def authenticate_customer(self, email: str) -> str:
         self.authenticate_calls.append(email)
         if self.auth_error:
-            raise GatewayError(401, "nope")
+            raise FrontOfHouseError(401, "nope")
         return f"token-for-{email}"
 
     async def get_me(self, token: str) -> Customer:
@@ -60,7 +60,7 @@ class _FakeClient:
     async def create_order(self, token: str, *, address_id: object, items: object) -> OrderResult:
         self.create_order_calls.append(token)
         if self.order_error:
-            raise GatewayError(422, "bad request")
+            raise FrontOfHouseError(422, "bad request")
         return OrderResult(
             status_code=201 if self.order_status == OrderStatusEnum.accepted else 202,
             order=Order(

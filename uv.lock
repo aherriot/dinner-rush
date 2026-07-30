@@ -15,7 +15,7 @@ members = [
     "dinner-rush",
     "dinner-rush-core",
     "dispatch",
-    "gateway",
+    "front-of-house",
     "kitchen",
     "simulator",
 ]
@@ -833,9 +833,9 @@ wheels = [
 ]
 
 [[package]]
-name = "gateway"
+name = "front-of-house"
 version = "0.1.0"
-source = { editable = "services/gateway" }
+source = { editable = "services/front_of_house" }
 dependencies = [
     { name = "celery" },
     { name = "channels" },

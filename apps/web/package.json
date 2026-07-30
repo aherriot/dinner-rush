@@ -12,7 +12,7 @@
     "build-storybook": "storybook build",
     "tokens:build": "node scripts/build-tokens.mjs",
     "tokens:check": "node scripts/build-tokens.mjs && git diff --exit-code -- src/design/tokens.css src/design/tokens.ts src/design/tokens.storybook.ts",
-    "api:generate": "openapi-typescript ../../services/gateway/openapi.json -o src/api/schema.ts",
+    "api:generate": "openapi-typescript ../../services/front_of_house/openapi.json -o src/api/schema.ts",
     "api:check": "pnpm run api:generate && git diff --exit-code -- src/api/schema.ts",
     "lint:css": "stylelint 'src/**/*.css' '.storybook/**/*.css'",
     "lint:js": "eslint .",
