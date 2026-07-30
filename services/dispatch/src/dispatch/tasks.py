@@ -161,18 +161,29 @@ def _tick_motion(
     """Best-effort visual position interpolation (ADR 0007 §6) — never gates
     a real state transition; those are scheduled on their own timers below.
     Keyed by `courier_id` (not the trip) since that's what `GET /couriers`
-    and `attempt_assignment`'s `GEOSEARCH` both look positions up by."""
+    and `attempt_assignment`'s `GEOSEARCH` both look positions up by.
+
+    Never writes the leg's final position: this task's last tick is scheduled
+    to land at the same instant as the paired `arrive_at_pickup`/
+    `arrive_at_dropoff` task, with no ordering guarantee between the two. If
+    this ran second it would blindly overwrite whatever position that task
+    (which may have released the courier to idle and snapped it back to base,
+    per `arrive_at_dropoff`) had just written. The arrival tasks are the sole
+    writers of a leg's terminal position; this only fills in the frames
+    before it.
+    """
     started_at = datetime.fromisoformat(started_at_iso)
     elapsed = (datetime.now(UTC) - started_at).total_seconds()
     fraction = 1.0 if duration_seconds <= 0 else min(1.0, max(0.0, elapsed / duration_seconds))
+
+    if fraction >= 1.0:
+        return
 
     redis_client = get_redis_client()
     x = round(from_x + (to_x - from_x) * fraction)
     y = round(from_y + (to_y - from_y) * fraction)
     set_position(redis_client, courier_id, x, y)
 
-    if fraction >= 1.0:
-        return
     config = load_config().dispatch
     tick_seconds = min(config.eta_recalc_interval_seconds / _speed(), duration_seconds - elapsed)
     _tick_motion.apply_async(
@@ -232,6 +243,8 @@ def arrive_at_pickup(trip_id: str, sequence: int, causation_id: str | None) -> N
         session.commit()
     finally:
         session.close()
+
+    set_position(get_redis_client(), courier_id, pickup_x, pickup_y)
 
     dropoff_leg_seconds = max((eta_at - now).total_seconds(), 0.0)
     _tick_motion.apply_async(
