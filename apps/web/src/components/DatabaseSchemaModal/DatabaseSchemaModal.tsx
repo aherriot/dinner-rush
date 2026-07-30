@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Modal } from "../Modal/Modal";
 import styles from "./DatabaseSchemaModal.module.css";
 
@@ -30,9 +31,13 @@ export interface DatabaseSchemaModalProps {
  * (`table.column`) rather than drawn as a routed line between boxes: with
  * up to 11 tables (front_of_house) an auto-routed diagram would need real layout
  * work to stay readable, and a plain annotation says the same thing without
- * the risk of crossing, overlapping lines.
+ * the risk of crossing, overlapping lines. Hovering or focusing a reference
+ * instead highlights its target table's border — the same "trace the
+ * relationship" payoff as a drawn line, without the routing work.
  */
 export function DatabaseSchemaModal({ open, onClose, databaseName, tables }: DatabaseSchemaModalProps) {
+  const [highlightedTable, setHighlightedTable] = useState<string | null>(null);
+
   return (
     <Modal
       open={open}
@@ -44,7 +49,11 @@ export function DatabaseSchemaModal({ open, onClose, databaseName, tables }: Dat
     >
       <div className={styles.grid}>
         {tables.map((table) => (
-          <table key={table.name} className={styles.table}>
+          <table
+            key={table.name}
+            className={styles.table}
+            data-highlighted={table.name === highlightedTable || undefined}
+          >
             <caption className={styles.caption}>{table.name}</caption>
             <thead>
               <tr>
@@ -57,24 +66,36 @@ export function DatabaseSchemaModal({ open, onClose, databaseName, tables }: Dat
               </tr>
             </thead>
             <tbody>
-              {table.columns.map((column) => (
-                <tr key={column.name}>
-                  <td className={styles.cell}>
-                    {column.name}
-                    {column.primaryKey && (
-                      <span className={styles.badge} title="Primary key">
-                        PK
-                      </span>
-                    )}
-                  </td>
-                  <td className={styles.cell}>
-                    <span className={styles.type}>{column.type}</span>
-                    {column.references && (
-                      <span className={styles.reference}>→ {column.references}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {table.columns.map((column) => {
+                const referencedTable = column.references?.split(".")[0] ?? null;
+                return (
+                  <tr key={column.name}>
+                    <td className={styles.cell}>
+                      {column.name}
+                      {column.primaryKey && (
+                        <span className={styles.badge} title="Primary key">
+                          PK
+                        </span>
+                      )}
+                    </td>
+                    <td className={styles.cell}>
+                      <span className={styles.type}>{column.type}</span>
+                      {column.references && (
+                        <button
+                          type="button"
+                          className={styles.reference}
+                          onMouseEnter={() => setHighlightedTable(referencedTable)}
+                          onMouseLeave={() => setHighlightedTable(null)}
+                          onFocus={() => setHighlightedTable(referencedTable)}
+                          onBlur={() => setHighlightedTable(null)}
+                        >
+                          → {column.references}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         ))}

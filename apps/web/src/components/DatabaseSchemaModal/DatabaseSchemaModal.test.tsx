@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DatabaseSchemaModal, type SchemaTable } from "./DatabaseSchemaModal";
 
@@ -42,6 +42,36 @@ describe("DatabaseSchemaModal", () => {
     );
     expect(screen.getAllByText("PK")).toHaveLength(2);
     expect(screen.getByText("→ courier.id")).toBeInTheDocument();
+  });
+
+  it("highlights the referenced table while its foreign-key reference is hovered, and clears on unhover", () => {
+    render(
+      <DatabaseSchemaModal open onClose={vi.fn()} databaseName="dispatch" tables={TABLES} />,
+    );
+    const courierTable = screen.getByText("courier").closest("table")!;
+    const reference = screen.getByRole("button", { name: "→ courier.id" });
+
+    expect(courierTable).not.toHaveAttribute("data-highlighted");
+
+    fireEvent.mouseEnter(reference);
+    expect(courierTable).toHaveAttribute("data-highlighted", "true");
+
+    fireEvent.mouseLeave(reference);
+    expect(courierTable).not.toHaveAttribute("data-highlighted");
+  });
+
+  it("highlights the referenced table on keyboard focus, and clears on blur", () => {
+    render(
+      <DatabaseSchemaModal open onClose={vi.fn()} databaseName="dispatch" tables={TABLES} />,
+    );
+    const courierTable = screen.getByText("courier").closest("table")!;
+    const reference = screen.getByRole("button", { name: "→ courier.id" });
+
+    fireEvent.focus(reference);
+    expect(courierTable).toHaveAttribute("data-highlighted", "true");
+
+    fireEvent.blur(reference);
+    expect(courierTable).not.toHaveAttribute("data-highlighted");
   });
 
   it("has no confirm/cancel actions — it's read-only", () => {
