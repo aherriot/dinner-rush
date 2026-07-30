@@ -29,8 +29,8 @@ from sqlalchemy.orm import Session
 
 from dinner_rush_core.config import CourierSpeedConfig, DispatchConfig, GridConfig, RestaurantConfig
 from dispatch import tasks
-from dispatch.geo import set_position
-from dispatch.models import Courier
+from dispatch.geo import get_position, set_position
+from dispatch.models import Courier, Trip
 
 _DISPATCH_CONFIG = DispatchConfig(
     grid=GridConfig(width=100, height=100),
@@ -195,3 +195,74 @@ def test_pickup_leg_countdown_shrinks_with_speed_not_grows(
     assert captured["pickup_countdown"] == pytest.approx(1.0)
     # duration_seconds passed to the autopilot
     assert captured["tick_args"][-1] == pytest.approx(1.0)
+
+
+def test_tick_motion_leaves_position_untouched_on_its_final_scheduled_tick(
+    redis_client: redis.Redis,
+) -> None:
+    """`_tick_motion`'s last invocation is scheduled to land at the same
+    instant as the paired `arrive_at_pickup`/`arrive_at_dropoff` task, with no
+    guarantee which runs first. It used to write `(to_x, to_y)`
+    unconditionally before checking `fraction >= 1.0`, so a courier
+    `arrive_at_dropoff` had already released to idle and snapped back to the
+    restaurant got silently dragged back to the old dropoff whenever this
+    task lost that race — stranding it there until its next trip. The final
+    tick must be a no-op so the arrival task is the sole writer of the leg's
+    terminal position."""
+    courier_id = str(uuid.uuid4())
+    set_position(redis_client, courier_id, 50, 50)  # arrive_at_dropoff already snapped to base
+
+    # This leg ran from the restaurant (50, 50) to a dropoff at (80, 20);
+    # its own final tick landing after arrive_at_dropoff must not drag the
+    # courier back to that dropoff.
+    tasks._tick_motion(courier_id, 50, 50, 80, 20, datetime.now(UTC).isoformat(), 0.0)
+
+    assert get_position(redis_client, courier_id) == (50, 50)
+
+
+def test_arrive_at_pickup_snaps_courier_position_to_the_restaurant(
+    session: Session,
+    redis_client: redis.Redis,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The pickup leg's terminal position used to be written only by
+    `_tick_motion`'s final tick, which is no longer guaranteed to run (see
+    the test above) — `arrive_at_pickup` must write it explicitly instead,
+    since every pickup is at the fixed restaurant point."""
+    courier = Courier(
+        name="Test Courier",
+        status="assigned",
+        vehicle="bike",
+        speed_cells_per_min=60,
+        shift_started_at=datetime.now(UTC),
+    )
+    session.add(courier)
+    session.flush()
+    set_position(redis_client, str(courier.id), 40, 50)  # still en route to pickup
+
+    now = datetime.now(UTC)
+    trip = Trip(
+        courier_id=courier.id,
+        order_id=uuid.uuid4(),
+        code="4471",
+        status="assigned",
+        pickup_x=50,
+        pickup_y=50,
+        dropoff_x=80,
+        dropoff_y=20,
+        assigned_at=now,
+        eta_at=now,
+        distance_cells=10,
+    )
+    session.add(trip)
+    session.commit()
+
+    monkeypatch.setattr(tasks, "SessionLocal", lambda: session)
+    monkeypatch.setattr(session, "close", lambda: None)  # fixture owns teardown
+    monkeypatch.setattr(tasks, "get_redis_client", lambda: redis_client)
+    monkeypatch.setattr(tasks._tick_motion, "apply_async", lambda args: None)
+    monkeypatch.setattr(tasks.arrive_at_dropoff, "apply_async", lambda args, countdown: None)
+
+    tasks.arrive_at_pickup(str(trip.id), 1, None)
+
+    assert get_position(redis_client, str(courier.id)) == (50, 50)
