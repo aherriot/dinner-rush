@@ -10,6 +10,11 @@
   border-radius: var(--radius);
   background: var(--bg-raised);
   align-self: start;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.table[data-highlighted="true"] {
+  border-color: var(--border-focus);
 }
 
 .caption {
@@ -65,6 +70,9 @@
 }
 
 .reference {
+  all: unset;
+  box-sizing: border-box;
+
   /* A block of its own, not inline after `.type` — a long FK reference
      (e.g. "uuid? → oven_slot.id") plus its base type doesn't reliably fit
      one nowrap-free line at this column's minmax(220px, 1fr) width, so it
@@ -72,8 +80,19 @@
      modal (verified against the real `ticket` table, kitchen's own longest
      reference). */
   display: block;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: default;
+  border-radius: var(--radius-sm);
 
   /* text-secondary, not text-tertiary — same --bg-raised contrast margin
      issue as .header above. */
   color: var(--text-secondary);
+}
+
+.reference:hover,
+.reference:focus-visible {
+  color: var(--text-primary);
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
 }
