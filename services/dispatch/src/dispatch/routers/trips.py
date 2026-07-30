@@ -23,6 +23,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from dinner_rush_core.auth import Claims
+from dinner_rush_core.config import load_config
 from dispatch.api_models import BacklogOut, DropoffOut, TripFailRequest, TripOut
 from dispatch.auth import require_courier, require_service_scope
 from dispatch.db import get_session
@@ -175,8 +176,9 @@ def deliver_trip(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     trip.delivered_at = now
     _revoke_grant(session, trip.id, now)
-    _release_courier_if_idle(session, trip)
-    set_position(get_redis_client(), str(trip.courier_id), trip.dropoff_x, trip.dropoff_y)
+    released = _release_courier_if_idle(session, trip)
+    if not released:
+        set_position(get_redis_client(), str(trip.courier_id), trip.dropoff_x, trip.dropoff_y)
 
     envelope = build_envelope(
         event_type="order.delivered",
@@ -213,7 +215,9 @@ def fail_trip(
     trip.failed_at = now
     trip.failure_reason = request.reason
     _revoke_grant(session, trip.id, now)
-    _release_courier_if_idle(session, trip)
+    released = _release_courier_if_idle(session, trip)
+    if not released:
+        set_position(get_redis_client(), str(trip.courier_id), trip.dropoff_x, trip.dropoff_y)
 
     envelope = build_envelope(
         event_type="order.failed",
@@ -238,7 +242,23 @@ def _revoke_grant(session: Session, trip_id: uuid.UUID, now: datetime) -> None:
         grant.revoked_at = now
 
 
-def _release_courier_if_idle(session: Session, trip: Trip) -> None:
+def _release_courier_if_idle(session: Session, trip: Trip) -> bool:
+    """Marks the courier idle when this was their last active trip, and —
+    mirroring `dispatch.tasks.arrive_at_dropoff`'s autopilot behaviour
+    exactly, since a real courier client hitting these endpoints by hand and
+    the autopilot calling the same transitions automatically are two callers
+    of the same state machine, not two different ones (ADR 0007 §6) — snaps
+    their position back to the restaurant rather than leaving them parked
+    wherever the trip ended. `attempt_assignment`'s `GEOSEARCH` only looks
+    for idle couriers within `search_radius_cells` of the restaurant, so an
+    idle courier left elsewhere is stranded until it goes offline/online, not
+    just temporarily out of luck.
+
+    Returns whether the courier was released, so callers know whether they
+    still need to position the courier themselves (at the trip's dropoff,
+    for a courier still busy with another trip) or whether this already
+    took care of it (back at base).
+    """
     other_active = session.execute(
         select(func.count())
         .select_from(Trip)
@@ -248,7 +268,12 @@ def _release_courier_if_idle(session: Session, trip: Trip) -> None:
             Trip.status.in_(_ACTIVE_TRIP_STATUSES),
         )
     ).scalar_one()
-    if other_active == 0:
-        courier = session.get(Courier, trip.courier_id)
-        assert courier is not None
-        courier.status = "idle"
+    if other_active > 0:
+        return False
+
+    courier = session.get(Courier, trip.courier_id)
+    assert courier is not None
+    courier.status = "idle"
+    restaurant = load_config().dispatch.restaurant
+    set_position(get_redis_client(), str(trip.courier_id), restaurant.x, restaurant.y)
+    return True

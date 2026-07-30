@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from dinner_rush_core.auth import Claims
+from dinner_rush_core.config import load_config
 from dispatch.api_models import CourierOut, CourierPositionRequest, CourierStatusRequest, TripOut
 from dispatch.auth import require_courier, require_service_scope
 from dispatch.db import get_session
@@ -64,14 +65,29 @@ def set_courier_status(
         raise HTTPException(status_code=404, detail="courier not found")
 
     now = datetime.now(UTC)
-    x, y = get_position(get_redis_client(), str(courier_id)) or (0, 0)
 
     if request.status == "offline":
+        x, y = get_position(get_redis_client(), str(courier_id)) or (0, 0)
         handle_courier_offline(session, courier)
         event_type = "courier.offline"
     else:
         if courier.status == "offline":
+            # Coming back online is this simulation's stand-in for "showed
+            # up at the restaurant to start a shift" (it's also the moment
+            # `shift_started_at` gets set, below) — so it snaps position back
+            # to base the same way `_release_courier_if_idle`
+            # (`routers/trips.py`) and `arrive_at_dropoff`
+            # (`dispatch.tasks`) already do for every other path that
+            # releases a courier to idle. Without this, a courier taken
+            # offline mid-trip resumes idle wherever `handle_courier_offline`
+            # left them — outside `attempt_assignment`'s `GEOSEARCH` radius,
+            # same failure mode, different trigger.
             courier.status = "idle"
+            restaurant = load_config().dispatch.restaurant
+            set_position(get_redis_client(), str(courier_id), restaurant.x, restaurant.y)
+            x, y = restaurant.x, restaurant.y
+        else:
+            x, y = get_position(get_redis_client(), str(courier_id)) or (0, 0)
         if courier.shift_started_at is None:
             courier.shift_started_at = now
         event_type = "courier.online"
