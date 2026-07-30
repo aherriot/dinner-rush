@@ -87,7 +87,7 @@ def advance_ticket(
                 session.rollback()
                 advance_ticket.apply_async(
                     args=(ticket_id, step_index, sequence, causation_id),
-                    countdown=CLAIM_RETRY_COUNTDOWN_SECONDS,
+                    countdown=CLAIM_RETRY_COUNTDOWN_SECONDS / _speed(),
                 )
                 return
             ticket.oven_slot_id = claimed.oven_slot_id

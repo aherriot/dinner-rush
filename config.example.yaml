@@ -45,7 +45,7 @@ dispatch:
   assignment_retry_seconds: 10 # when no courier is in range
   max_assignment_retry_seconds: 90 # cap for the exponential backoff below assignment_retry_seconds — an order with no available courier for a long stretch retries at a constant ~1s (scaled by SPEED) cadence otherwise, which was observed to flood the Celery worker and starve already-assigned trips' own scheduled ETA tasks from running
   address_grant_ttl_seconds: 3600 # SPEC.md §6.2
-  eta_recalc_interval_seconds: 30
+  eta_recalc_interval_seconds: 4 # board-visible courier position freshness; was 30 — too coarse for a live map even with CSS transitions smoothing each step
 
 # ─────────────────────────────────────────────────── service_client ──
 # Every cross-service HTTP call (gateway → kitchen today, → dispatch from

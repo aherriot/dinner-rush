@@ -126,8 +126,10 @@ def assign_order(
     finally:
         session.close()
 
-    cells_per_second = result.speed_cells_per_min / 60.0 / speed
-    pickup_leg_seconds = result.pickup_leg_cells / cells_per_second if cells_per_second else 0.0
+    cells_per_second = result.speed_cells_per_min / 60.0
+    pickup_leg_seconds = (
+        result.pickup_leg_cells / cells_per_second / speed if cells_per_second else 0.0
+    )
 
     _tick_motion.apply_async(
         args=(

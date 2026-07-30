@@ -16,14 +16,21 @@ courier-contention/assignment behaviour itself is covered by
 `test_assignment.py`.
 """
 
-from collections.abc import Callable
+import os
+import uuid
+from collections.abc import Callable, Iterator
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
 import pytest
+import redis
+from sqlalchemy.orm import Session
 
 from dinner_rush_core.config import CourierSpeedConfig, DispatchConfig, GridConfig, RestaurantConfig
 from dispatch import tasks
+from dispatch.geo import set_position
+from dispatch.models import Courier
 
 _DISPATCH_CONFIG = DispatchConfig(
     grid=GridConfig(width=100, height=100),
@@ -126,3 +133,65 @@ def test_attempt_counter_increments_by_one_on_each_reschedule(
 ) -> None:
     _run(attempt=4)
     assert unassignable()["args"][-1] == 5
+
+
+@pytest.fixture
+def redis_client() -> Iterator[redis.Redis]:
+    client = redis.Redis.from_url(os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
+    yield client
+    client.delete("couriers:live")
+    client.close()
+
+
+def test_pickup_leg_countdown_shrinks_with_speed_not_grows(
+    session: Session,
+    redis_client: redis.Redis,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`assign_order` used to compute `cells_per_second` as
+    `speed_cells_per_min / 60 / speed` and then divide distance by *that* —
+    equivalent to multiplying the wall-clock countdown by `speed` instead of
+    dividing it, so a sped-up demo made couriers take *longer* to reach the
+    restaurant, not shorter. `arrive_at_pickup`'s countdown must shrink as
+    `speed` grows, matching `assignment.attempt_assignment`'s own
+    `eta_seconds = distance_cells / _speed_cells_per_second(courier) / speed`
+    (assignment.py:188) exactly."""
+    courier = Courier(
+        name="Test Courier",
+        status="idle",
+        vehicle="bike",
+        speed_cells_per_min=60,  # 1 cell/domain-second, for round numbers
+        shift_started_at=datetime.now(UTC),
+    )
+    session.add(courier)
+    session.flush()
+    set_position(redis_client, str(courier.id), 40, 50)  # 10 cells from the restaurant
+    session.commit()
+
+    monkeypatch.setattr(
+        tasks,
+        "load_config",
+        lambda: _FakeRootConfig(_DISPATCH_CONFIG),
+    )
+    monkeypatch.setattr(tasks, "get_redis_client", lambda: redis_client)
+    monkeypatch.setattr(tasks, "SessionLocal", lambda: session)
+    monkeypatch.setattr(session, "close", lambda: None)  # fixture owns teardown
+    monkeypatch.setattr(tasks, "_speed", lambda: 10)
+
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(
+        tasks._tick_motion, "apply_async", lambda args: captured.setdefault("tick_args", args)
+    )
+    monkeypatch.setattr(
+        tasks.arrive_at_pickup,
+        "apply_async",
+        lambda args, countdown: captured.update(pickup_args=args, pickup_countdown=countdown),
+    )
+
+    tasks.assign_order(str(uuid.uuid4()), "4471", 60, 40, "1 Test Street", 1, None, 0)
+
+    # Domain duration is 10 cells / 1 cell-per-second = 10 domain-seconds;
+    # at speed=10 that's 1.0 wall-clock second — not 10 * 10 = 100.
+    assert captured["pickup_countdown"] == pytest.approx(1.0)
+    # duration_seconds passed to the autopilot
+    assert captured["tick_args"][-1] == pytest.approx(1.0)
