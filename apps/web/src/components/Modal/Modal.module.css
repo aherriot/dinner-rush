@@ -22,6 +22,8 @@
 .panel {
   width: 100%;
   max-width: 400px;
+  max-height: 85vh;
+  overflow-y: auto;
   border-radius: var(--radius-lg);
   border: var(--border-strong) 1px solid;
   background: var(--bg-panel);
@@ -29,6 +31,10 @@
   transition:
     opacity var(--dur-normal) var(--ease-out),
     transform var(--dur-normal) var(--ease-out);
+}
+
+.panel[data-size="wide"] {
+  max-width: 960px;
 }
 
 .panel[data-closed] {

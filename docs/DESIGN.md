@@ -121,6 +121,10 @@ rather than aspirational.
 | `--courier-idle` | `#78828F` | `#7B8496` | Online, unassigned |
 | `--courier-active` | `#4FC3F7` | `#0C7BB5` | On a trip |
 | `--courier-offline` | `#78828F` | `#7B8496` | Offline — 40% opacity + dashed stroke |
+| `--service-healthy` | `#3DD68C` | `#0B7A4B` | `SystemMap` node — answering normally |
+| `--service-degraded` | `#D9A441` | `#9A6B10` | `SystemMap` node — reachable but reconnecting/at capacity |
+| `--service-down` | `#F2545B` | `#C41E3A` | `SystemMap` node — unreachable |
+| `--service-unknown` | `#7A8494` | `#6B7688` | `SystemMap` node — no independent signal (e.g. a service's own Postgres) |
 
 ### 3.5 Accent
 

@@ -24,9 +24,23 @@ class SpeedTracker:
     def current(self) -> int:
         return self._current
 
+    async def refresh(self) -> None:
+        """One fetch, on demand rather than on `run_forever`'s own timer —
+        `runner.run` awaits this once, before the arrivals loop starts, so
+        the very first Poisson interarrival draw already sees the real
+        speed instead of `initial`. Without it, an admin who sets SPEED=10
+        *before* starting `make sim` still gets a first arrival drawn at
+        speed=1 (mean 60s at the 1/min baseline) purely because
+        `run_forever`'s background poll hasn't completed by the time the
+        arrivals loop takes its first synchronous read of `.current` —
+        every arrival after that first one is fine, only the first is
+        wrong, which reads as "10x isn't doing anything" for up to a
+        couple of minutes by chance."""
+        # keep the last known value on a blip — it shouldn't crash the run
+        with contextlib.suppress(GatewayError, httpx.HTTPError):
+            self._current = await self._client.get_speed()
+
     async def run_forever(self) -> None:
         while True:
-            # keep the last known value on a blip — it shouldn't crash the run
-            with contextlib.suppress(GatewayError, httpx.HTTPError):
-                self._current = await self._client.get_speed()
+            await self.refresh()
             await asyncio.sleep(self._poll_interval_seconds)

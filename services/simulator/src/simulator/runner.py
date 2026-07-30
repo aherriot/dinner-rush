@@ -34,7 +34,13 @@ async def run(
     speed = SpeedTracker(client)
     scenario_overrides = ScenarioOverrideTracker(client)
     simulation = Simulation(client, config, speed, stats, scenario_overrides=scenario_overrides)
-    await simulation.load_menu()
+    # `speed.refresh()` here, blocking, matters: without it the first
+    # Poisson interarrival draw (below) reads `speed.current`'s default
+    # (`1`) rather than whatever an admin already set before this process
+    # started — `speed.run_forever()`'s background poll doesn't get a
+    # chance to complete before that first read (`speed.py`'s own
+    # docstring on `refresh`).
+    await asyncio.gather(simulation.load_menu(), speed.refresh())
 
     session_tasks: set[asyncio.Task[None]] = set()
 

@@ -34,6 +34,10 @@ export type ColorToken =
   | "courier-idle"
   | "courier-active"
   | "courier-offline"
+  | "service-healthy"
+  | "service-degraded"
+  | "service-down"
+  | "service-unknown"
   | "accent"
   | "accent-hover"
   | "accent-active";
