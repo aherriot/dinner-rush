@@ -1,6 +1,6 @@
 """Regenerates `services/kitchen/openapi.json` from the live FastAPI app.
 
-Mirrors gateway's `manage.py spectacular` step (SPEC.md §3.5: "every service
+Mirrors front-of-house's `manage.py spectacular` step (SPEC.md §3.5: "every service
 publishes OpenAPI... CI regenerates and fails on a diff"). Run via
 `make lint`, which diffs the result — a route change without a regenerated
 schema fails CI.

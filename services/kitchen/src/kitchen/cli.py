@@ -117,7 +117,7 @@ def _relay_once(redis_client: Any, maxlen: int) -> None:
 def run_seed() -> None:
     """Ovens and stations from `config.yaml`'s `kitchen:` block. Idempotent:
     does nothing if any ovens already exist, matching `make seed`'s
-    re-runnable contract on the gateway side."""
+    re-runnable contract on the front-of-house side."""
     config = load_config()
     session = SessionLocal()
     try:

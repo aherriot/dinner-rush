@@ -1,4 +1,4 @@
-"""Regenerates `simulator/client/models.py` from gateway's checked-in OpenAPI
+"""Regenerates `simulator/client/models.py` from front-of-house's checked-in OpenAPI
 schema (SPEC.md §3.5: "the simulator client is generated... hand-written
 clients are a defect"). `make lint` reruns this and diffs the result.
 
@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-_SCHEMA_PATH = _REPO_ROOT / "services" / "gateway" / "openapi.json"
+_SCHEMA_PATH = _REPO_ROOT / "services" / "front_of_house" / "openapi.json"
 _OUTPUT_PATH = Path(__file__).resolve().parent.parent / "src" / "simulator" / "client" / "models.py"
 
 

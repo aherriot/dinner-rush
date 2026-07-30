@@ -6,7 +6,7 @@ after a positive quote — the claim is the only thing that's authoritative.
 SPEC.md's response shape also lists `promised_at`, but §5's formula
 (`promised_at = accepted_at + projected_wait_s + drive_estimate_s +
 buffer_s`) needs `accepted_at`, which doesn't exist yet at quote time —
-gateway computes `promised_at` itself from this response's
+front-of-house computes `promised_at` itself from this response's
 `projected_wait_s`, not the other way around. Documented as a deliberate
 deviation in ADR 0004.
 """

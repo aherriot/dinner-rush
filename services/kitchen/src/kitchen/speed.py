@@ -1,6 +1,6 @@
 """Kitchen-side read of the runtime `SPEED` override — see
 `dinner_rush_core.speed`. Kitchen never writes it (`POST /admin/speed` is
-gateway's), only reads it, for the same reason every duration here is
+front-of-house's), only reads it, for the same reason every duration here is
 divided by `SPEED` at the point of use rather than stored pre-scaled
 (SPEC.md §5).
 """

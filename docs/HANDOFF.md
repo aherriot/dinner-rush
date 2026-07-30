@@ -19,7 +19,7 @@ Your scope this session is Phase 0 only.
 
 Create the repo at ./dinner-rush/, move the specification documents into it, and
 git init there. Then build Phase 0 per PHASES.md: the monorepo layout in
-CLAUDE.md §3, compose.yaml with Postgres + Redis + a gateway skeleton, real
+CLAUDE.md §3, compose.yaml with Postgres + Redis + a front-of-house skeleton, real
 readiness healthchecks, the Makefile targets in CLAUDE.md §6, ruff + mypy strict
 + pytest, a pnpm workspace for apps/web, GitHub Actions running lint and tests,
 and docs/adr/0001-why-three-services.md.
@@ -31,7 +31,7 @@ Done means: from a clean clone, `make up` brings every container to healthy in
 under 90 seconds, and `make lint` and `make test` are green. Run it yourself and
 show me the output. Do not report done without having run it.
 
-Do not start Phase 1. Do not write service code beyond the gateway skeleton
+Do not start Phase 1. Do not write service code beyond the front-of-house skeleton
 needed to prove compose works. If you find a genuine contradiction between the
 specification documents, stop and ask rather than resolving it yourself.
 ```
@@ -79,7 +79,7 @@ Phases 0–1 are complete.
 
 Your scope this session is Phase 2 only.
 
-Build the Django + DRF gateway: the entities in SPEC.md §1.1, the order state
+Build the Django + DRF front-of-house service: the entities in SPEC.md §1.1, the order state
 machine in §2 as an explicit FSM, the API surface in §3.1–3.2, pricing in §5,
 and the roles matrix in §6.1. Cooking is instant and fake this phase. Seed menu
 and customers from config.example.yaml. Build the storefront and order tracker
@@ -141,7 +141,7 @@ Read CLAUDE.md, then PHASES.md Phase 4, DECISIONS.md §0002, SPEC.md §1.2 and
 Your scope this session is Phase 4 only. This is the centrepiece of the project.
 
 Extract the kitchen into its own FastAPI + Celery service with its own Postgres
-database. This must be a real refactor — code moving out of the gateway in
+database. This must be a real refactor — code moving out of front-of-house in
 commits that show it — not a new directory appearing fully formed. The git
 history is part of the deliverable.
 
@@ -151,7 +151,7 @@ there is no lease and no Redis lock. Redis caches occupancy for reads and never
 decides. Build the reaper as reconciliation against Postgres, not as lock expiry.
 
 Kitchen's database contains no customer PII — absent, not filtered. It builds
-tickets from order.accepted events and never receives a gateway DSN.
+tickets from order.accepted events and never receives a front-of-house DSN.
 
 Also build: the tick loop, station contention, POST /capacity/quote as a
 read-only projection that reserves nothing, backpressure per the capacity block
@@ -178,7 +178,7 @@ complete.
 
 Your scope this session is Phase 5 only.
 
-Build: RS256 service-to-service auth with the gateway signing and publishing
+Build: RS256 service-to-service auth with front-of-house signing and publishing
 JWKS, kitchen verifying against it with key caching, and the claims in SPEC.md
 §6.3. Generate OpenAPI from both services and generate the typed clients into
 apps/web/src/api/ — hand-written clients are a defect. Add contract tests. Give
@@ -286,7 +286,7 @@ of config.example.yaml. Phases 0–8 are complete.
 
 Your scope this session is Phase 9 only.
 
-Build: OpenTelemetry tracing across gateway → kitchen → dispatch with the
+Build: OpenTelemetry tracing across front-of-house → kitchen → dispatch with the
 correlation_id from the event envelope threaded through, so one order's full
 fan-out is a single trace. Prometheus metrics per SPEC.md §7, a Grafana
 dashboard in compose, and a k6 load test writing docs/load/latest.json.
@@ -314,7 +314,7 @@ expectations already specified in config.example.yaml. Each scenario's `expect`
 field is its acceptance criterion — assert it, don't just trigger it.
 
 The one that matters is dispatch_down. Verify every line of its expectation:
-gateway and kitchen stay healthy, orders keep reaching ready, stream_pending for
+front-of-house and kitchen stay healthy, orders keep reaching ready, stream_pending for
 cg:dispatch climbs monotonically, zero 5xx on POST /orders throughout, and
 XAUTOCLAIM drains the backlog on restart with every ready order assigned.
 
@@ -365,7 +365,7 @@ output. An agent reporting "Phase 4 complete" without showing the 200-iteration
 contention test is the most likely way this goes wrong.
 
 **Check the extractions are real.** `git log --stat` after Phases 4 and 7.
-Kitchen and dispatch must appear as code *moving* out of the gateway. A service
+Kitchen and dispatch must appear as code *moving* out of front-of-house. A service
 that materialises fully formed loses the story the git history is supposed to
 tell.
 

@@ -4,7 +4,7 @@ up: ## bring the stack up; every container healthy in <90s
 	@test -f config.yaml || cp config.example.yaml config.yaml
 	docker compose up -d --build --wait --wait-timeout 90
 	docker compose ps
-	docker compose exec gateway python manage.py migrate
+	docker compose exec front-of-house python manage.py migrate
 	docker compose exec kitchen alembic upgrade head
 	docker compose exec dispatch alembic upgrade head
 
@@ -15,12 +15,12 @@ ui:
 	cd apps/web && pnpm run dev
 
 seed: ## menu, customers, staff, ovens, stations and couriers from config.yaml
-	docker compose exec gateway python manage.py seed
+	docker compose exec front-of-house python manage.py seed
 	docker compose exec kitchen python -m kitchen.cli seed
 	docker compose exec dispatch python -m dispatch.cli seed
 
 reset: ## fast in-place reset for a fresh demo: clears orders/tickets/trips + the event spine; menu, customers and couriers are untouched, no restart needed
-	docker compose exec gateway python manage.py reset
+	docker compose exec front-of-house python manage.py reset
 	docker compose exec kitchen python -m kitchen.cli reset
 	docker compose exec dispatch python -m dispatch.cli reset
 	@echo "make reset: fresh demo state — order codes restart at #1, ovens and couriers back to idle"
@@ -36,7 +36,7 @@ rush: ## trigger the friday_rush scenario — runs for its duration_seconds, the
 	docker compose --profile simulator run --rm simulator python -m simulator.cli --scenario friday_rush
 
 test: ## all Python tests, against real Postgres + Redis — safe to run alongside a live `make demo`
-	docker compose up -d --wait --wait-timeout 90 gateway-db kitchen-db dispatch-db redis
+	docker compose up -d --wait --wait-timeout 90 front-of-house-db kitchen-db dispatch-db redis
 	POSTGRES_HOST=localhost REDIS_URL=redis://localhost:6379/0 \
 		KITCHEN_POSTGRES_HOST=localhost KITCHEN_POSTGRES_PORT=5433 KITCHEN_POSTGRES_DB=kitchen_test \
 		DISPATCH_POSTGRES_HOST=localhost DISPATCH_POSTGRES_PORT=5434 DISPATCH_POSTGRES_DB=dispatch_test \
@@ -51,8 +51,8 @@ test-fe: ## vitest + Playwright visual regression
 lint: ## ruff, mypy, stylelint, eslint, token + generated-client drift check
 	uv run ruff check .
 	uv run mypy
-	cd services/gateway && uv run python manage.py spectacular --format openapi-json --file openapi.json --fail-on-warn
-	git diff --exit-code -- services/gateway/openapi.json
+	cd services/front_of_house && uv run python manage.py spectacular --format openapi-json --file openapi.json --fail-on-warn
+	git diff --exit-code -- services/front_of_house/openapi.json
 	uv run python services/kitchen/scripts/export_openapi.py
 	git diff --exit-code -- services/kitchen/openapi.json
 	uv run python services/dispatch/scripts/export_openapi.py

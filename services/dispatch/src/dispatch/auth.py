@@ -1,10 +1,10 @@
-"""Verifies gateway-signed tokens on every non-health endpoint (SPEC.md §6.3).
+"""Verifies front-of-house-signed tokens on every non-health endpoint (SPEC.md §6.3).
 
-Two kinds of caller this phase: `role == "service"` (gateway, scoped
-per-call, minted by `gateway.common.service_tokens` — reserved for future
-synchronous gateway->dispatch calls; nothing in this phase needs one, see
+Two kinds of caller this phase: `role == "service"` (front-of-house, scoped
+per-call, minted by `front_of_house.common.service_tokens` — reserved for future
+synchronous front-of-house->dispatch calls; nothing in this phase needs one, see
 ADR 0007 §1) and `role == "courier"` (`scope=["courier:own"]`, `sub` is the
-courier's own id). Gateway does not yet mint courier tokens (ADR 0007 §5) —
+courier's own id). Front-of-house does not yet mint courier tokens (ADR 0007 §5) —
 tests mint them directly the same way `kitchen/tests/test_service_auth.py`
 does for service tokens, against dispatch's own JWKS-client mock.
 """
@@ -34,7 +34,7 @@ def get_claims(authorization: str | None = Header(default=None)) -> Claims:
 
 def require_service_scope(scope: str) -> Callable[..., Claims]:
     """`dependencies=[Depends(require_service_scope("dispatch:call"))]` on a
-    router — 403s unless the caller is gateway's service identity and its
+    router — 403s unless the caller is front-of-house's service identity and its
     token was scoped to exactly this call."""
 
     def _check(claims: Claims = Depends(get_claims)) -> Claims:

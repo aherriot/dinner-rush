@@ -63,7 +63,7 @@ dinner-rush/
 │       ├── auth/                # JWT verify, JWKS client, scopes
 │       └── config/              # config.yaml loader, SPEED handling
 ├── services/
-│   ├── gateway/                 # Django 5 + DRF        :8000
+│   ├── front_of_house/          # Django 5 + DRF        :8000
 │   ├── kitchen/                 # FastAPI + Celery      :8001
 │   ├── dispatch/                # FastAPI               :8002
 │   └── simulator/               # standalone client     (no ports exposed)
@@ -87,7 +87,7 @@ contains no domain logic — envelopes, transport, auth, config, nothing else.
 | | |
 | --- | --- |
 | Python | 3.12+ |
-| Gateway | Django 5.x, DRF 3.15+, Channels (websockets) |
+| Front-of-house | Django 5.x, DRF 3.15+, Channels (websockets) |
 | Kitchen | FastAPI, Celery 5.x, SQLAlchemy 2.x |
 | Dispatch | FastAPI, SQLAlchemy 2.x, redis-py |
 | Data | Postgres 16, Redis 7.4 (streams, GEO, cache, Celery broker) |
@@ -114,7 +114,7 @@ Violating any of these is a defect regardless of whether tests pass.
 - **Every state change writes its event in the same transaction** via the outbox
 - **Every consumer is idempotent by `event_id`**, deduped in the same
   transaction as its side effect
-- Kitchen and dispatch **never** receive a gateway database connection string
+- Kitchen and dispatch **never** receive a front-of-house database connection string
 - Kitchen's database contains **no customer PII**. Not filtered — absent
 
 **The simulator**

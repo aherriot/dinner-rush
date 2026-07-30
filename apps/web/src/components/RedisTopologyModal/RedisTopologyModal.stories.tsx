@@ -21,7 +21,7 @@ const STREAMS: StreamTopology[] = [
       { group: "cg:kitchen", does: "Builds a ticket from order.accepted." },
       { group: "cg:dispatch", does: "Caches the dropoff, triggers assignment on order.ready." },
       { group: "cg:analytics", does: "Increments an EventTypeCounter row per event type." },
-      { group: "cg:order-sync", does: "Mirrors transitions back onto gateway's Order.status." },
+      { group: "cg:order-sync", does: "Mirrors transitions back onto front-of-house's Order.status." },
       { group: "cg:ws-fanout", does: "Pushes to the per-order channel OrderTracker uses." },
       { group: "cg:ws-board-fanout", does: "Pushes to the board's own socket." },
     ],

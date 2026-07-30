@@ -27,13 +27,13 @@ describe("computeNodeHealth", () => {
   it("reports every node healthy when the board is fully connected", () => {
     const health = computeNodeHealth(BASE_INPUT);
     expect(health).toEqual({
-      gateway: "healthy",
+      "front-of-house": "healthy",
       kitchen: "healthy",
       dispatch: "healthy",
       redis: "healthy",
       browser: "healthy",
       simulator: "healthy",
-      "gateway-db": "healthy",
+      "front-of-house-db": "healthy",
       "kitchen-db": "healthy",
       "dispatch-db": "healthy",
     });
@@ -41,21 +41,21 @@ describe("computeNodeHealth", () => {
 
   it("mirrors each service's health onto its own database node", () => {
     const health = computeNodeHealth({ ...BASE_INPUT, ovens: null, couriers: null });
-    expect(health["gateway-db"]).toBe(health.gateway);
+    expect(health["front-of-house-db"]).toBe(health["front-of-house"]);
     expect(health["kitchen-db"]).toBe(health.kitchen);
     expect(health["dispatch-db"]).toBe(health.dispatch);
     expect(health["kitchen-db"]).toBe("down");
     expect(health["dispatch-db"]).toBe("down");
   });
 
-  it("marks gateway down only on a cold-load snapshot failure, not a later one", () => {
+  it("marks front-of-house down only on a cold-load snapshot failure, not a later one", () => {
     const health = computeNodeHealth({ ...BASE_INPUT, hasSnapshot: false, snapshotFailed: true });
-    expect(health.gateway).toBe("down");
+    expect(health["front-of-house"]).toBe("down");
   });
 
-  it("marks gateway (and redis/browser) degraded, not down, when only the websocket is disconnected", () => {
+  it("marks front-of-house (and redis/browser) degraded, not down, when only the websocket is disconnected", () => {
     const health = computeNodeHealth({ ...BASE_INPUT, wsConnected: false });
-    expect(health.gateway).toBe("degraded");
+    expect(health["front-of-house"]).toBe("degraded");
     expect(health.redis).toBe("degraded");
     expect(health.browser).toBe("degraded");
   });
@@ -96,7 +96,7 @@ describe("producerNodeIdFor", () => {
   it("maps a versioned producer string to its service", () => {
     expect(producerNodeIdFor("kitchen@1.4.2")).toBe("kitchen");
     expect(producerNodeIdFor("dispatch@0.9.0")).toBe("dispatch");
-    expect(producerNodeIdFor("gateway@1.4.2")).toBe("gateway");
+    expect(producerNodeIdFor("front_of_house@1.4.2")).toBe("front-of-house");
   });
 
   it("returns null for an unrecognised producer rather than guessing", () => {
@@ -105,37 +105,37 @@ describe("producerNodeIdFor", () => {
 });
 
 describe("pulsePlanForEvent", () => {
-  it("routes a kitchen-produced event through kitchen->redis->gateway->browser", () => {
+  it("routes a kitchen-produced event through kitchen->redis->front-of-house->browser", () => {
     const steps = pulsePlanForEvent({ producer: "kitchen@1.4.2" });
-    expect(steps.map((s) => s.edgeId)).toEqual(["kitchen-redis", "gateway-redis", "browser-gateway-ws"]);
+    expect(steps.map((s) => s.edgeId)).toEqual(["kitchen-redis", "front-of-house-redis", "browser-front-of-house-ws"]);
     expect(steps[0].delayMs).toBeLessThan(steps[1].delayMs);
     expect(steps[1].delayMs).toBeLessThan(steps[2].delayMs);
   });
 
-  it("routes a dispatch-produced event through dispatch->redis->gateway->browser", () => {
+  it("routes a dispatch-produced event through dispatch->redis->front-of-house->browser", () => {
     const steps = pulsePlanForEvent({ producer: "dispatch@0.9.0" });
-    expect(steps.map((s) => s.edgeId)).toEqual(["dispatch-redis", "gateway-redis", "browser-gateway-ws"]);
+    expect(steps.map((s) => s.edgeId)).toEqual(["dispatch-redis", "front-of-house-redis", "browser-front-of-house-ws"]);
   });
 
-  it("skips the missing first hop for an event gateway produced itself", () => {
-    const steps = pulsePlanForEvent({ producer: "gateway@1.4.2" });
-    expect(steps.map((s) => s.edgeId)).toEqual(["gateway-redis", "browser-gateway-ws"]);
+  it("skips the missing first hop for an event front-of-house produced itself", () => {
+    const steps = pulsePlanForEvent({ producer: "front_of_house@1.4.2" });
+    expect(steps.map((s) => s.edgeId)).toEqual(["front-of-house-redis", "browser-front-of-house-ws"]);
   });
 
   it("still reaches the browser for an unrecognised producer", () => {
     const steps = pulsePlanForEvent({ producer: "mystery@1.0.0" });
-    expect(steps.map((s) => s.edgeId)).toEqual(["gateway-redis", "browser-gateway-ws"]);
+    expect(steps.map((s) => s.edgeId)).toEqual(["front-of-house-redis", "browser-front-of-house-ws"]);
   });
 });
 
 describe("httpPulseForEventType", () => {
   it("maps order.placed to the client-facing edge", () => {
-    expect(httpPulseForEventType("order.placed")).toBe("client-gateway");
+    expect(httpPulseForEventType("order.placed")).toBe("client-front-of-house");
   });
 
   it("maps order.accepted and order.rejected to the capacity-quote edge", () => {
-    expect(httpPulseForEventType("order.accepted")).toBe("gateway-kitchen");
-    expect(httpPulseForEventType("order.rejected")).toBe("gateway-kitchen");
+    expect(httpPulseForEventType("order.accepted")).toBe("front-of-house-kitchen");
+    expect(httpPulseForEventType("order.rejected")).toBe("front-of-house-kitchen");
   });
 
   it("returns null for event types with no synchronous HTTP counterpart", () => {
@@ -189,14 +189,14 @@ describe("computeNodeMetrics", () => {
 
   it("reuses the board's own orders/min and simulator recent count", () => {
     const metrics = computeNodeMetrics(BASE_METRICS_INPUT);
-    expect(metrics.gateway).toBe("12 orders/min");
+    expect(metrics["front-of-house"]).toBe("12 orders/min");
     expect(metrics.simulator).toBe("2 orders/15s");
   });
 
   it("has no entry for redis or the database nodes — they list their real state directly", () => {
     const metrics = computeNodeMetrics(BASE_METRICS_INPUT);
     expect(metrics.redis).toBeUndefined();
-    expect(metrics["gateway-db"]).toBeUndefined();
+    expect(metrics["front-of-house-db"]).toBeUndefined();
     expect(metrics["kitchen-db"]).toBeUndefined();
     expect(metrics["dispatch-db"]).toBeUndefined();
   });
@@ -213,7 +213,7 @@ describe("computeNodeMetrics", () => {
 
   it("uses singular/plural correctly at the boundary", () => {
     const metrics = computeNodeMetrics({ ...BASE_METRICS_INPUT, ordersPerMinute: 1, trips: [] });
-    expect(metrics.gateway).toBe("1 order/min");
+    expect(metrics["front-of-house"]).toBe("1 order/min");
     expect(metrics.dispatch).toBe("0 active trips");
   });
 

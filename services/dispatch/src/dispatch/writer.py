@@ -1,7 +1,7 @@
 """Write an outbox row inside the caller's own transaction (DECISIONS.md §0004).
 
-Same pattern as `gateway.eventing.writer` and `kitchen.writer` — same table
-shape, different database — dispatch's own `outbox` table, never gateway's
+Same pattern as `front_of_house.eventing.writer` and `kitchen.writer` — same table
+shape, different database — dispatch's own `outbox` table, never front-of-house's
 or kitchen's.
 """
 

@@ -1,5 +1,5 @@
 /** Human-readable copy for `Order.rejection_reason` / `OrderStatusEvent.reason`
- * (services/gateway/src/gateway/orders/rejection.py). Not a design token —
+ * (services/front_of_house/src/front_of_house/orders/rejection.py). Not a design token —
  * plain copy, shared so the board drill-in and the customer tracker read
  * identically. */
 export const REJECTION_REASON_LABELS: Record<string, string> = {

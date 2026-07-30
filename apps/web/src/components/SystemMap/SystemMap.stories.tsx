@@ -13,22 +13,22 @@ type Story = StoryObj<typeof meta>;
 const ALL_HEALTHY: Record<NodeId, ServiceHealth> = {
   simulator: "healthy",
   browser: "healthy",
-  gateway: "healthy",
+  "front-of-house": "healthy",
   kitchen: "healthy",
   dispatch: "healthy",
   redis: "healthy",
-  "gateway-db": "healthy",
+  "front-of-house-db": "healthy",
   "kitchen-db": "healthy",
   "dispatch-db": "healthy",
 };
 
 const SAMPLE_METRICS: Partial<Record<NodeId, string>> = {
-  gateway: "12 orders/min",
+  "front-of-house": "12 orders/min",
   kitchen: "7/12 slots busy",
   dispatch: "3 active trips",
   redis: "3 streams · 6 groups",
   simulator: "2 orders/15s",
-  "gateway-db": "11 tables",
+  "front-of-house-db": "11 tables",
   "kitchen-db": "6 tables",
   "dispatch-db": "6 tables",
 };
@@ -49,18 +49,18 @@ export const Degraded: Story = {
   },
 };
 
-export const GatewayDown: Story = {
-  name: "Gateway unreachable (cold start / outage)",
+export const FrontOfHouseDown: Story = {
+  name: "Front of house unreachable (cold start / outage)",
   args: {
     health: {
       ...ALL_HEALTHY,
-      gateway: "down",
+      "front-of-house": "down",
       kitchen: "down",
       dispatch: "down",
       redis: "degraded",
       browser: "degraded",
       simulator: "unknown",
-      "gateway-db": "down",
+      "front-of-house-db": "down",
       "kitchen-db": "down",
       "dispatch-db": "down",
     },

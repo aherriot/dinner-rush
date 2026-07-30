@@ -7,13 +7,13 @@ Accepted.
 ## Context
 
 Phase 7 extracts `dispatch` (FastAPI + Redis GEO), replacing the fixed-delay
-`assign -> pick_up -> depart -> deliver` stand-in gateway has run since Phase
-3 (`gateway/orders/tasks.py`). SPEC.md §1.3, §3.4 and §6.2 specify the schema,
+`assign -> pick_up -> depart -> deliver` stand-in front-of-house has run since Phase
+3 (`front_of_house/orders/tasks.py`). SPEC.md §1.3, §3.4 and §6.2 specify the schema,
 API surface and the address-grant rule to the character. What they don't
-specify is how a service that must never receive gateway's database
+specify is how a service that must never receive front-of-house's database
 connection string gets hold of a delivery address in the first place, given
-gateway is the *only* JWT signer (SPEC.md §6.3) — kitchen and dispatch can
-verify, never call each other or gateway synchronously as anything but a
+front-of-house is the *only* JWT signer (SPEC.md §6.3) — kitchen and dispatch can
+verify, never call each other or front-of-house synchronously as anything but a
 verifier. Five decisions were made getting there.
 
 ## Decisions
@@ -72,7 +72,7 @@ overclaimed in the README.
 SPEC.md §2's FSM has `assigned --unassign--> ready` and `picked_up
 --unassign--> ready` (courier-offline chaos scenario), but §4's event
 catalogue has no event for it. Added `order.unassigned` (`events:order`,
-producer dispatch, consumers gateway/ws) and a `trip.status` value of
+producer dispatch, consumers front-of-house/ws) and a `trip.status` value of
 `unassigned` — the superseded trip's terminal marker, distinct from `failed`
 (which carries a delivery-attempt `failure_reason`; `unassigned` never does).
 On courier-offline, dispatch revokes the trip's `address_grant`, marks the
@@ -84,25 +84,25 @@ Likewise, `courier.assigned` needed a stream: it's about the *courier*
 aggregate (`aggregate_type="courier"`), so it publishes on `events:courier`,
 while `order.picked_up`/`order.delivering`/`order.unassigned` are about the
 *order* aggregate and stay on `events:order` alongside the already-catalogued
-`order.delivered`/`order.failed`. Gateway's `cg:order-sync` now runs two
+`order.delivered`/`order.failed`. Front-of-house's `cg:order-sync` now runs two
 processes — one per stream, same group name, same handler dispatch by
 `event_type` — mirroring how `manage.py stream_consumer` already takes
 `--group`; it now also takes `--stream`.
 
-### 5. Courier auth is dispatch-verified, gateway does not yet issue courier tokens
+### 5. Courier auth is dispatch-verified, front-of-house does not yet issue courier tokens
 
 Kitchen's `auth.py` already flagged this gap: simplejwt's customer/staff
 tokens have no `kid` header, so they can't be verified via the JWKS path
 kitchen and dispatch both use, and fixing that for every existing role is a
 bigger refactor than this phase's actual payoff. Dispatch's `auth.py` mirrors
-kitchen's exactly — `role == "service"` with a scope for gateway-originated
+kitchen's exactly — `role == "service"` with a scope for front-of-house-originated
 calls (there are none synchronous in this phase; reserved for future use),
 plus a new `role == "courier"` check with `scope=["courier:own"]` and a
 `sub == courier_id` match for self-scoped endpoints (`/couriers/me/trips`,
 `/trips/{id}/pickup`, etc.). Tests mint RS256 courier tokens directly
 (`services/dispatch/tests/test_address_grant.py`), the same way
-`test_service_auth.py` does for kitchen — nothing here depends on gateway's
-`POST /auth/token` actually issuing one yet. Wiring gateway to mint courier
+`test_service_auth.py` does for kitchen — nothing here depends on front-of-house's
+`POST /auth/token` actually issuing one yet. Wiring front-of-house to mint courier
 tokens is real but small follow-on work, deferred for the same reason ADR
 0005 deferred the board's staff-token gap: it isn't load-bearing for this
 phase's acceptance criterion.

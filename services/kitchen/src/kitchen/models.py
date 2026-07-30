@@ -1,11 +1,11 @@
 """Kitchen's domain model (SPEC.md §1.2) and event-spine tables.
 
-Kitchen never reads the gateway's `order` table — tickets are built from
+Kitchen never reads front-of-house's `order` table — tickets are built from
 `order.accepted` events only (`consumers.py`), and this database holds no
 customer PII: `Ticket` carries `code` and item snapshots, nothing else.
 Separate Postgres database, no shared connection string (CLAUDE.md §3/§5).
 
-`Outbox`/`ProcessedEvent` mirror the gateway's tables exactly (DECISIONS.md
+`Outbox`/`ProcessedEvent` mirror front-of-house's tables exactly (DECISIONS.md
 §0004) — same shape, own database — so `dinner_rush_core.outbox`'s
 cursor-based relay/idempotency helpers work unmodified against either.
 """

@@ -12,7 +12,7 @@ reacts to two event types (ADR 0007 §1, §2):
 Every other event type on this stream (`order.accepted`, `order.baking`, …)
 is silently ignored — each handler below checks `envelope.event_type` itself
 rather than relying on `HANDLERS` to route by type, same as
-`gateway.eventing.handlers.handle_order_sync`.
+`front_of_house.eventing.handlers.handle_order_sync`.
 """
 
 from datetime import UTC, datetime

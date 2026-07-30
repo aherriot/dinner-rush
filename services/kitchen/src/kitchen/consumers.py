@@ -1,6 +1,6 @@
 """`cg:kitchen` — builds tickets from `order.accepted` events (SPEC.md §1.2).
 
-Kitchen never reads the gateway's `order` table; this is the only way a
+Kitchen never reads front-of-house's `order` table; this is the only way a
 ticket comes into existence, and it's also the PII boundary — only `code`
 and item skus/qty cross in, because that's all `order.accepted`'s payload
 carries.
@@ -9,7 +9,7 @@ carries.
 aggregate, not per event type — DECISIONS.md §0003), so this handler checks
 `envelope.event_type` itself rather than relying on `HANDLERS` to route by
 type, same as `dispatch.consumers.handle_order_stream` and
-`gateway.eventing.handlers.handle_order_sync`.
+`front_of_house.eventing.handlers.handle_order_sync`.
 """
 
 from datetime import UTC, datetime

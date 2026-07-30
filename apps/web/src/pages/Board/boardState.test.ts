@@ -24,7 +24,7 @@ function event(overrides: Partial<BoardEnvelope> & { event_type: string }): Boar
     sequence: 1,
     correlation_id: "corr-1",
     causation_id: null,
-    producer: "gateway@0.1.0",
+    producer: "front_of_house@0.1.0",
     payload: {},
     stream_id: "1700000000000-0",
     stream: "events:order",

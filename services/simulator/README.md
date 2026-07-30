@@ -1,12 +1,12 @@
 # simulator
 
 An ordinary API client — its own container, its own dependency file, no
-service or database credentials, no imports from `services/gateway` or
+service or database credentials, no imports from `services/front_of_house` or
 `services/kitchen`. See CLAUDE.md §5 and [ADR 0006](../../docs/adr/0006-simulator.md).
 
 It authenticates via `POST /auth/token` with a seeded customer email, same as
 any real client, and generates Poisson-arrival order traffic against
-gateway's public API. Courier behaviour lands in Phase 7, once dispatch
+front-of-house's public API. Courier behaviour lands in Phase 7, once dispatch
 exists to call.
 
 ## Running it
@@ -24,14 +24,14 @@ already exist, which `manage.py seed` creates from
 `--scenario NAME` only runs scenarios whose `overrides` target something this
 phase's simulator actually simulates — today, only `friday_rush`. Anything
 else (`oven_down`, `ingredient_shortage`, `courier_offline`, `dispatch_down`)
-exits with an error naming why (needs gateway's admin scenario endpoint,
+exits with an error naming why (needs front-of-house's admin scenario endpoint,
 Phase 10, or dispatch, Phase 7) — see `simulator/config.py`.
 
 ## Structure
 
 ```
 src/simulator/
-├── client/          # models.py is generated from gateway's openapi.json
+├── client/          # models.py is generated from front-of-house's openapi.json
 │                     (scripts/generate_client.py); api.py is a thin,
 │                     hand-written, endpoint-generic call layer on top —
 │                     the same split as apps/web's openapi-typescript +

@@ -16,7 +16,7 @@ def _envelope() -> EventEnvelope:
         aggregate_id=uuid.uuid4(),
         sequence=1,
         correlation_id=uuid.uuid4(),
-        producer="gateway@0.1.0",
+        producer="front_of_house@0.1.0",
         payload={"code": "4400"},
     )
 
@@ -27,7 +27,7 @@ class FakeOutboxCursor:
     Good enough for exercising the relay's *logic* (which rows it selects,
     what it marks published) without a live Postgres — the SKIP LOCKED
     concurrency behaviour itself is a database property, proven against the
-    real thing in the gateway-level tests.
+    real thing in the front-of-house-level tests.
     """
 
     def __init__(self, rows: list[tuple[int, uuid.UUID, str, dict[str, Any], bool]]) -> None:

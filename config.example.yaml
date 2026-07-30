@@ -48,7 +48,7 @@ dispatch:
   eta_recalc_interval_seconds: 4 # board-visible courier position freshness; was 30 — too coarse for a live map even with CSS transitions smoothing each step
 
 # ─────────────────────────────────────────────────── service_client ──
-# Every cross-service HTTP call (gateway → kitchen today, → dispatch from
+# Every cross-service HTTP call (front-of-house → kitchen today, → dispatch from
 # Phase 7). Real seconds, not domain time — token/connection freshness, not
 # simulation duration, so never divided by `speed`. PHASES.md Phase 5.
 service_client:
@@ -59,8 +59,8 @@ service_client:
   circuit_breaker_failure_threshold: 5
   circuit_breaker_reset_seconds: 30
 
-# ─────────────────────────────────────────────────────────── gateway ──
-gateway:
+# ─────────────────────────────────────────────────────── front_of_house ──
+front_of_house:
   delivery_fee_cents: 299
   free_delivery_threshold_cents: 4000
   max_delivery_distance_cells: 45 # beyond → rejected: outside_range
@@ -81,7 +81,7 @@ menu:
 # ─────────────────────────────────────────────────────────── simulator ──
 # The simulator is an ordinary API client. Nothing here grants it privilege.
 simulator:
-  api_base_url: http://gateway:8000/api/v1
+  api_base_url: http://front-of-house:8000/api/v1
   dispatch_base_url: http://dispatch:8002
 
   customers:
@@ -147,7 +147,7 @@ scenarios:
     description: "Dispatch is killed. Orders still cook. Delivery stalls. Recovery drains."
     manual: "docker compose stop dispatch  →  wait 90s  →  docker compose start dispatch"
     expect: |
-      gateway and kitchen stay healthy; orders continue to reach `ready`;
+      front-of-house and kitchen stay healthy; orders continue to reach `ready`;
       stream_pending{group=cg:dispatch} climbs monotonically;
       zero 5xx on POST /orders throughout;
       on restart XAUTOCLAIM drains the backlog and every ready order is assigned.

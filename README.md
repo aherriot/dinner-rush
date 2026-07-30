@@ -16,7 +16,7 @@ make test    # pytest against real Postgres + Redis
 make down
 ```
 
-`gateway` serves on `http://localhost:8000` — `/healthz` for liveness,
+`front-of-house` serves on `http://localhost:8000` — `/healthz` for liveness,
 `/readyz` for real dependency checks (Postgres, Redis).
 
 ```bash

@@ -25,7 +25,7 @@ export interface BoardEnvelope {
   stream: BoardStream;
 }
 
-const GATEWAY_WS_URL = (import.meta.env.VITE_GATEWAY_URL ?? "http://localhost:8000").replace(
+const FRONT_OF_HOUSE_WS_URL = (import.meta.env.VITE_FRONT_OF_HOUSE_URL ?? "http://localhost:8000").replace(
   /^http/,
   "ws",
 );
@@ -67,7 +67,7 @@ export function useBoardSocket(onEvent: (event: BoardEnvelope) => void): { conne
         if (lastEventId) params.set(queryParam, lastEventId);
       }
 
-      socket = new WebSocket(`${GATEWAY_WS_URL}/ws/board/?${params.toString()}`);
+      socket = new WebSocket(`${FRONT_OF_HOUSE_WS_URL}/ws/board/?${params.toString()}`);
 
       socket.onopen = () => {
         if (!cancelled) setConnected(true);

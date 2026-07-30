@@ -29,7 +29,7 @@ def set_oven_status(
     request: OvenStatusUpdateRequest,
     session: Session = Depends(get_session),
 ) -> Oven:
-    """`POST /admin/ovens/{id}/status` (SPEC.md §3.2), reached via gateway's
+    """`POST /admin/ovens/{id}/status` (SPEC.md §3.2), reached via front-of-house's
     proxy — the chaos "oven down" scenario's write path.
 
     Emits `oven.down`/`oven.restored` (SPEC.md §4) through kitchen's own

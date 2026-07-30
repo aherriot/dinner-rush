@@ -1,8 +1,8 @@
-"""Polls gateway's `GET /scenarios/active` (SPEC.md §3.2, PHASES.md Phase 8)
+"""Polls front-of-house's `GET /scenarios/active` (SPEC.md §3.2, PHASES.md Phase 8)
 so a manager clicking "Friday rush" on the board changes a *running*
 simulator's behaviour, not just the `--scenario` CLI flag's one-shot patch
 at process startup (`config.apply_scenario_overrides`). Same shape as
-`speed.py`'s `SpeedTracker`: gateway owns the truth in Redis, this ordinary
+`speed.py`'s `SpeedTracker`: front-of-house owns the truth in Redis, this ordinary
 API client only polls a public endpoint for it, since it has no service
 credentials to read Redis directly (CLAUDE.md §5).
 
@@ -22,14 +22,14 @@ import contextlib
 
 import httpx
 
-from simulator.client.api import GatewayClient, GatewayError
+from simulator.client.api import FrontOfHouseClient, FrontOfHouseError
 
 _RATE_KEY = "simulator.customers.baseline_rate_per_minute"
 _BASKET_WEIGHTS_KEY = "simulator.customers.basket_size_weights"
 
 
 class ScenarioOverrideTracker:
-    def __init__(self, client: GatewayClient, *, poll_interval_seconds: float = 5.0) -> None:
+    def __init__(self, client: FrontOfHouseClient, *, poll_interval_seconds: float = 5.0) -> None:
         self._client = client
         self._poll_interval_seconds = poll_interval_seconds
         self._overrides: dict[str, object] = {}
@@ -38,7 +38,7 @@ class ScenarioOverrideTracker:
         while True:
             # A blip shouldn't crash the run — keep the last known overrides,
             # same as `SpeedTracker`.
-            with contextlib.suppress(GatewayError, httpx.HTTPError):
+            with contextlib.suppress(FrontOfHouseError, httpx.HTTPError):
                 self._overrides = await self._client.get_active_scenario_overrides()
             await asyncio.sleep(self._poll_interval_seconds)
 

@@ -3,7 +3,7 @@
 `make sim` runs it with no arguments (baseline rate, indefinitely, until
 `docker compose stop`). `make rush` passes `--scenario friday_rush` (a
 named, time-boxed run — see `simulator.config.apply_scenario_overrides` for
-which scenarios the simulator can run itself versus which need gateway's
+which scenarios the simulator can run itself versus which need front-of-house's
 admin scenario endpoint, Phase 10, or dispatch, Phase 7).
 """
 
@@ -16,7 +16,7 @@ from collections.abc import Sequence
 
 from simulator import config as config_module
 from simulator import runner
-from simulator.client.api import GatewayClient
+from simulator.client.api import FrontOfHouseClient
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -60,7 +60,7 @@ async def _main_async(scenario_name: str | None) -> None:
         with contextlib.suppress(NotImplementedError):
             loop.add_signal_handler(sig, stop_event.set)
 
-    client = GatewayClient(api_base_url)
+    client = FrontOfHouseClient(api_base_url)
     try:
         # `duration_seconds` in config.yaml is domain time like every other
         # duration there (config.example.yaml's own header comment) — divide

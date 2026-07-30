@@ -15,7 +15,7 @@ an honest monolith, because it invites "why is this three repos" without a
 defensible answer.
 
 The test applied: a service earns its extraction only if it does a
-*genuinely different kind of work* from the gateway — different data
+*genuinely different kind of work* from front-of-house — different data
 structures, different concurrency shape, different failure mode — not because
 splitting is fashionable.
 
@@ -24,9 +24,9 @@ splitting is fashionable.
 Three services, split by the shape of the work rather than by team boundary
 or deploy cadence (there is one deployer and no team):
 
-| Service | Stack | The work | Why it can't live in the gateway |
+| Service | Stack | The work | Why it can't live in front-of-house |
 | --- | --- | --- | --- |
-| `gateway` | Django + DRF + Channels | Menu, customers, orders, staff, pricing, auth, admin, websocket fanout | — it's the CRUD/orchestration home |
+| `front_of_house` | Django + DRF + Channels | Menu, customers, orders, staff, pricing, auth, admin, websocket fanout | — it's the CRUD/orchestration home |
 | `kitchen` | FastAPI + Celery | Constrained-resource scheduling: finite oven slots, per-item cook times, station contention, a tick loop | It holds genuinely contended state under `FOR UPDATE SKIP LOCKED` and runs a scheduling loop — that's a different runtime shape than request/response CRUD, not a bigger version of it (DECISIONS.md §0002) |
 | `dispatch` | FastAPI + Redis GEO | Geospatial assignment: nearest available courier, trip batching, ETA/re-ETA | Different data structure (Redis GEO, not relational rows), different read pattern (proximity queries), different scaling profile |
 | `simulator` | plain Python, no DB | Poisson order arrivals, courier movement, chaos injection | It is a client of the public API, not a component of the system. If it could reach a database directly the whole backpressure story would be unfalsifiable — see CLAUDE.md §5 |
@@ -37,7 +37,7 @@ with a correctness argument and a test, not a contrived one. That's reason
 enough on its own to give it a service boundary rather than a Django app.
 
 `dispatch` earns its split on data-structure grounds: courier proximity is a
-GEO query, not a SQL join, and pretending otherwise inside the gateway would
+GEO query, not a SQL join, and pretending otherwise inside front-of-house would
 mean bolting Redis GEO logic into a request/response app that has no other
 reason to hold geospatial state.
 
@@ -52,7 +52,7 @@ reason to hold geospatial state.
 - The extractions in Phases 4 and 7 are built as *real refactor commits* out
   of the Phase 2 monolith, not new directories appearing fully formed, so the
   git history shows the decision being made rather than assumed from day one.
-- Two web frameworks (Django for `gateway`, FastAPI for `kitchen` and
+- Two web frameworks (Django for `front_of_house`, FastAPI for `kitchen` and
   `dispatch`) is a real cost — Django because DRF, Channels and the admin
   give the CRUD half for free; FastAPI because the scheduling and geospatial
   services need none of that and benefit from being small and async-native.

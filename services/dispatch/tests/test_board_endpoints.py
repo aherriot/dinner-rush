@@ -17,7 +17,11 @@ from dispatch.geo import set_position
 from dispatch.main import app
 from dispatch.models import Courier, PendingDropoff, Trip
 
-_FULL_ACCESS_CLAIMS_KWARGS = {"sub": "gateway", "role": "service", "scope": ["dispatch:read"]}
+_FULL_ACCESS_CLAIMS_KWARGS = {
+    "sub": "front_of_house",
+    "role": "service",
+    "scope": ["dispatch:read"],
+}
 
 
 @pytest.fixture

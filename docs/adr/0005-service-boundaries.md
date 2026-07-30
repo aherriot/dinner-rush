@@ -8,40 +8,40 @@ Accepted.
 
 Phase 5 is "the difference between 'I split it into services' and 'I own the
 failure modes of the split'" (PHASES.md). Two things needed deciding: how
-kitchen verifies a request actually came from gateway now that there's a
-second verifier in the system (ADR 0002 §1 deferred this), and what gateway's
+kitchen verifies a request actually came from front-of-house now that there's a
+second verifier in the system (ADR 0002 §1 deferred this), and what front-of-house's
 call into kitchen does when kitchen is slow, unreachable, or refusing.
 
 ## Decisions
 
-### 1. RS256 + JWKS, and gateway mints a separate, narrowly-scoped token per outbound call
+### 1. RS256 + JWKS, and front-of-house mints a separate, narrowly-scoped token per outbound call
 
-Gateway generates an RSA keypair on first run (`gateway/common/keys.py`,
-file-backed under a `gateway-keys` volume so it survives a plain restart) and
+Front-of-house generates an RSA keypair on first run (`front_of_house/common/keys.py`,
+file-backed under a `front-of-house-keys` volume so it survives a plain restart) and
 publishes the public half at `GET /.well-known/jwks.json`
-(`gateway/common/views.py`). Kitchen fetches and caches it by `kid`
+(`front_of_house/common/views.py`). Kitchen fetches and caches it by `kid`
 (`dinner_rush_core.auth.JWKSClient`) and verifies every request against it —
-no shared secret, and kitchen never needs a copy of gateway's key.
+no shared secret, and kitchen never needs a copy of front-of-house's key.
 
 Customer/staff login tokens (`accounts.views._issue_token`, still simplejwt)
-and the internal service token (`gateway/common/service_tokens.py`, plain
+and the internal service token (`front_of_house/common/service_tokens.py`, plain
 PyJWT) are minted by two different code paths, not one. That's a consequence
 of a real constraint, not a stylistic choice: djangorestframework-simplejwt
 has no way to set a `kid` header, so a token it mints can't be looked up in a
 JWKS by kid. Kitchen's endpoints therefore only accept the service token —
 `role: "service"`, scoped to exactly the call being made
 (`scope: ["kitchen:call"]` for `/capacity/quote`, etc.), minted fresh with a
-30-second expiry for each request gateway makes. The 30s TTL is real
+30-second expiry for each request front-of-house makes. The 30s TTL is real
 wall-clock freshness, not a simulated duration — it is deliberately **not**
 divided by `SPEED` (SPEC.md §5 governs domain time, not token lifetimes).
 
-**Consequence flagged for Phase 8**: SPEC.md §3.3 lists "gateway, board" as
+**Consequence flagged for Phase 8**: SPEC.md §3.3 lists "front-of-house, board" as
 callers of `GET /queue` and `/ovens`, and "staff" for `/tickets/{id}/advance`
 — i.e., the board is supposed to call kitchen directly with a manager/kitchen
-staff token, not through gateway. That token, minted by simplejwt, has no
+staff token, not through front-of-house. That token, minted by simplejwt, has no
 `kid` and today's `JWKSClient`-based verification would reject it. Phase 8
 has to either give simplejwt a `kid` header (there's a hook for a custom
-`TokenBackend.encode`) or route board's kitchen reads through gateway as a
+`TokenBackend.encode`) or route board's kitchen reads through front-of-house as a
 thin proxy. Not decided here because there's no board yet to decide it
 against — deciding infrastructure for a caller that doesn't exist is exactly
 the speculative-infrastructure mistake ADR 0002 §1 already named once.
@@ -73,7 +73,7 @@ dispatch (Phase 7) needs the identical shape for its own outbound calls.
 ### 3. Degraded-mode behaviour, written down before it's demoed
 
 The full table is [docs/degradation.md](../degradation.md) — kitchen slow,
-unreachable, breaker-open-and-recovering, gateway's JWKS unreachable from
+unreachable, breaker-open-and-recovering, front-of-house's JWKS unreachable from
 kitchen, and an expired service token, each with its answer. Restating only
 the through-line here because it's the whole point of Phase 4 and 5 together:
 every failure mode ends in **`rejected`**, never a 500. A kitchen that's dead,
@@ -85,11 +85,11 @@ response (CLAUDE.md §2).
 
 Kitchen publishes `services/kitchen/openapi.json` (`scripts/export_openapi.py`
 dumps `app.openapi()`), checked in and drift-tested two ways: `make lint`
-regenerates and diffs it (mirroring gateway's `manage.py spectacular` step),
+regenerates and diffs it (mirroring front-of-house's `manage.py spectacular` step),
 and `test_openapi_contract.py` asserts the same thing so `pytest` alone
 catches a stale schema without requiring `make lint` first.
 
-Separately: `apps/web`'s `pnpm run api:check` (generated gateway client vs.
+Separately: `apps/web`'s `pnpm run api:check` (generated front-of-house client vs.
 checked-in `schema.ts`) has existed since Phase 2 (ADR 0002 §4) but was never
 actually wired into `ci.yaml` — only into the local `make lint` target. A
 generated-client contract nobody's CI enforces isn't enforced. Fixed here:
@@ -107,14 +107,14 @@ the `frontend` job runs `api:check`.
 - Phase 9's tracing should thread the service token's `correlation_id` claim
   alongside the event envelope's — they're populated from the same
   `X-Correlation-Id`, but by two different mechanisms, and a trace spanning
-  gateway → kitchen should show both line up.
+  front-of-house → kitchen should show both line up.
 
 ## Alternatives considered
 
-**A single shared HS256 secret between gateway and kitchen, skip JWKS
+**A single shared HS256 secret between front-of-house and kitchen, skip JWKS
 entirely.** Rejected — SPEC.md §6.3 specifies RS256/JWKS explicitly, and
 ADR 0002 §1 already named the reason HS256 was acceptable in Phase 2 (an
-audience of one verifier, i.e. gateway itself) as temporary. Kitchen is a
+audience of one verifier, i.e. front-of-house itself) as temporary. Kitchen is a
 second, independent verifier now; a shared secret between two services means
 either one leaking it compromises both, and it can't be published for a third
 service (dispatch, Phase 7) to independently verify against without also

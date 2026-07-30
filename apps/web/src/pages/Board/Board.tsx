@@ -191,9 +191,9 @@ function BoardDashboard() {
       couriers: (snapshot.dispatch.couriers as DispatchCourierRaw[] | null) ?? null,
       backlog: (snapshot.dispatch.backlog as DispatchBacklogRaw | null) ?? null,
     });
-    // `/board/snapshot` is gateway reading kitchen and dispatch in the same
+    // `/board/snapshot` is front-of-house reading kitchen and dispatch in the same
     // request (`kitchen_client.py`/`dispatch_client.py`) — the System
-    // view's honest proxy for "gateway just asked both services".
+    // view's honest proxy for "front-of-house just asked both services".
     notifyEdges(SNAPSHOT_PULSE_EDGES);
   }, [notifyEdges]);
 
@@ -325,7 +325,7 @@ function BoardDashboard() {
     return (
       <div className={styles.page} data-theme="dark">
         <div className={styles["error-screen"]}>
-          <Panel title="Dinner Rush board" state="error" errorMessage="Gateway is unreachable." />
+          <Panel title="Dinner Rush board" state="error" errorMessage="Front of house is unreachable." />
         </div>
       </div>
     );

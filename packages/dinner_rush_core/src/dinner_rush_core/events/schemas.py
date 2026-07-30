@@ -6,7 +6,7 @@ new event type (`order.ready.v2`), not a mutation of this one. See
 DECISIONS.md §0004 "Versioning policy".
 
 Kitchen and dispatch don't exist yet (they're Phase 4 and 7 extractions), so
-until then the gateway monolith produces every event in this file itself,
+until then the front-of-house monolith produces every event in this file itself,
 including the ones the catalogue eventually attributes to those services.
 Fields that depend on infrastructure that doesn't exist yet (`oven_id`,
 `courier_id`, `queue_depth`, `position`) carry honest placeholder values —

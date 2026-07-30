@@ -13,7 +13,7 @@ from kitchen.main import app
 from kitchen.models import Outbox, Oven, OvenSlot, Ticket
 
 _FULL_ACCESS_CLAIMS = Claims(
-    sub="gateway",
+    sub="front_of_house",
     role="service",
     scope=["kitchen:call", "kitchen:read", "kitchen:advance"],
     exp=0,

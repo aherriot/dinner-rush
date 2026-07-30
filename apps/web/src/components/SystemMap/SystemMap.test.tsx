@@ -7,11 +7,11 @@ import type { NodeId, ServiceHealth } from "./systemMapState";
 const ALL_HEALTHY: Record<NodeId, ServiceHealth> = {
   simulator: "healthy",
   browser: "healthy",
-  gateway: "healthy",
+  "front-of-house": "healthy",
   kitchen: "healthy",
   dispatch: "healthy",
   redis: "healthy",
-  "gateway-db": "healthy",
+  "front-of-house-db": "healthy",
   "kitchen-db": "healthy",
   "dispatch-db": "healthy",
 };
@@ -24,7 +24,7 @@ describe("SystemMap", () => {
   it("renders every service node's name", () => {
     render(<SystemMap health={ALL_HEALTHY} />);
     expect(screen.getByText("Simulator")).toBeInTheDocument();
-    expect(screen.getByText("Gateway")).toBeInTheDocument();
+    expect(screen.getByText("Front of House")).toBeInTheDocument();
     expect(screen.getByText("Kitchen")).toBeInTheDocument();
     expect(screen.getByText("Dispatch")).toBeInTheDocument();
     expect(screen.getByText("Redis")).toBeInTheDocument();
@@ -34,9 +34,9 @@ describe("SystemMap", () => {
   it("renders each service's own database as its own node", () => {
     render(<SystemMap health={ALL_HEALTHY} />);
     // Node labels are the real Postgres DB names (compose.yaml POSTGRES_DB) —
-    // "gateway"/"kitchen"/"dispatch" — distinct from the service box labels
-    // ("Gateway"/"Kitchen"/"Dispatch") right next to them.
-    expect(screen.getByText("gateway")).toBeInTheDocument();
+    // "front_of_house"/"kitchen"/"dispatch" — distinct from the service box labels
+    // ("Front of House"/"Kitchen"/"Dispatch") right next to them.
+    expect(screen.getByText("front_of_house")).toBeInTheDocument();
     expect(screen.getByText("kitchen")).toBeInTheDocument();
     expect(screen.getByText("dispatch")).toBeInTheDocument();
     expect(screen.getAllByText("Postgres 16")).toHaveLength(3);
@@ -49,7 +49,7 @@ describe("SystemMap", () => {
     expect(screen.getByText("oven_slot")).toBeInTheDocument();
     expect(screen.getByText("station")).toBeInTheDocument();
     expect(screen.getByText("ticket")).toBeInTheDocument();
-    // gateway's own outbox/processed_event appear once each, not merged
+    // front-of-house's own outbox/processed_event appear once each, not merged
     // with kitchen's or dispatch's same-named tables.
     expect(screen.getAllByText("outbox")).toHaveLength(3);
   });
@@ -94,7 +94,7 @@ describe("SystemMap", () => {
 
   it("closes the open modal without leaving another one behind", async () => {
     render(<SystemMap health={ALL_HEALTHY} />);
-    await userEvent.click(screen.getByRole("button", { name: /gateway database/i }));
+    await userEvent.click(screen.getByRole("button", { name: /front_of_house database/i }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -115,7 +115,7 @@ describe("SystemMap", () => {
     render(
       <SystemMap
         health={ALL_HEALTHY}
-        metrics={{ gateway: "12 orders/min", kitchen: "4/12 slots busy" }}
+        metrics={{ "front-of-house": "12 orders/min", kitchen: "4/12 slots busy" }}
       />,
     );
     expect(screen.getByText("12 orders/min")).toBeInTheDocument();
@@ -134,8 +134,8 @@ describe("SystemMap", () => {
     expect(screen.getByText("Idle")).toBeInTheDocument();
   });
 
-  it("uses honest, non-alarming copy for a websocket-down gateway rather than a bare 'Degraded'", () => {
-    render(<SystemMap health={{ ...ALL_HEALTHY, gateway: "degraded" }} />);
+  it("uses honest, non-alarming copy for a websocket-down front-of-house rather than a bare 'Degraded'", () => {
+    render(<SystemMap health={{ ...ALL_HEALTHY, "front-of-house": "degraded" }} />);
     expect(screen.getByText("Polling REST")).toBeInTheDocument();
   });
 
@@ -174,7 +174,7 @@ describe("SystemMap", () => {
     expect(container.querySelector("line[data-flash]")).not.toBeNull();
   });
 
-  it("renders exactly the three database nodes gateway/kitchen/dispatch own", () => {
+  it("renders exactly the three database nodes front-of-house/kitchen/dispatch own", () => {
     const { container } = render(<SystemMap health={ALL_HEALTHY} />);
     expect(container.querySelectorAll('rect[class*="db-node"]')).toHaveLength(3);
   });
@@ -184,7 +184,7 @@ describe("SystemMap", () => {
     // traffic — pulses target real edge ids, so this just confirms nothing
     // downstream tries to animate one even if asked to.
     const { container } = render(
-      <SystemMap health={ALL_HEALTHY} pulses={[{ id: "p1", edgeId: "gateway-gateway-db" }]} />,
+      <SystemMap health={ALL_HEALTHY} pulses={[{ id: "p1", edgeId: "front-of-house-front-of-house-db" }]} />,
     );
     expect(container.querySelectorAll("circle[r]").length).toBe(0);
   });

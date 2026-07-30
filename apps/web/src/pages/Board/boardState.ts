@@ -68,9 +68,9 @@ export interface DispatchBacklogRaw {
 }
 
 /** Every order-status-affecting event type maps to exactly one FSM status
- * (SPEC.md §2) — mirrors `gateway/eventing/handlers.py`'s own
+ * (SPEC.md §2) — mirrors `front_of_house/eventing/handlers.py`'s own
  * `_EVENT_TYPE_TO_TRANSITION` table, since the board reads the same event
- * spine gateway's own order-sync consumer does. `courier.assigned` lives on
+ * spine front-of-house's own order-sync consumer does. `courier.assigned` lives on
  * `events:courier` (DECISIONS.md §0003), not `events:order`, but is handled
  * identically here — this reducer switches on `event_type`, not on which
  * physical stream carried it. */
@@ -98,7 +98,7 @@ const ORDER_EVENT_STATUS: Record<string, OrderStatus> = {
  * included defensively for the same cold-start case. */
 const NEW_ROW_EVENT_TYPES = new Set(["order.placed", "order.rejected"]);
 
-// Matches gateway's `BOARD_ORDER_FEED_LIMIT` (board/views.py) — the client
+// Matches front-of-house's `BOARD_ORDER_FEED_LIMIT` (board/views.py) — the client
 // cap must be at least the cold-load cap or a busy demo would visibly
 // truncate below what the initial snapshot already showed.
 export const ORDER_FEED_LIMIT = 500;

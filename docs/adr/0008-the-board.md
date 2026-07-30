@@ -8,7 +8,7 @@ Accepted.
 
 Phase 8 assembles the four-panel board (PIZZA.md's demo, DESIGN.md §10) live
 over websockets, with a speed control and chaos buttons. Everything it
-displays already exists — orders in gateway, ovens/queue in kitchen, trips/
+displays already exists — orders in front-of-house, ovens/queue in kitchen, trips/
 couriers in dispatch, the event spine from Phase 3 — but nothing had ever
 needed to read *all three* services at once, fan out *all three* event
 streams to one browser tab, or let a manager change live system behaviour
@@ -48,8 +48,8 @@ this on every event of a 40-orders/minute rush. Every `order.*` event's
 payload carries enough (`code` plus whatever changed) to move that order's
 row to its next status client-side with no round trip — `useBoardSocket`
 hands raw envelopes to a pure reducer (`boardState.applyOrderEvent`) keyed
-by `event_type`, mirroring gateway's own `handlers.py`
-`_EVENT_TYPE_TO_TRANSITION` table so the board and gateway's order-sync
+by `event_type`, mirroring front-of-house's own `handlers.py`
+`_EVENT_TYPE_TO_TRANSITION` table so the board and front-of-house's order-sync
 consumer agree on what each event means.
 
 Oven and courier events are different: `oven.slot_freed` carries only
@@ -71,7 +71,7 @@ existing admin endpoints; the fifth (`dispatch_down`) is `manual:` in config
 and was left as a `docker compose` step on purpose, not wired to a button.
 
 **Overrides** get a new Redis-backed mechanism
-(`gateway/board/scenario_state.py`) that is deliberately the SPEED precedent
+(`front_of_house/board/scenario_state.py`) that is deliberately the SPEED precedent
 (`accounts/speed.py`) generalised one step: `POST /admin/scenarios/{name}/
 start` writes the scenario's `overrides` dict to `scenario:override:<name>`
 with `EX duration_seconds` when the scenario has one — a Redis TTL *is* a
@@ -111,7 +111,7 @@ would be scope theatre, not a scenario.
 Making the oven-down button real requires kitchen to accept a status write
 at all — before this phase it only ever read (`GET /ovens`) or advanced
 tickets (`POST /tickets/{id}/advance`). `POST /ovens/{id}/status` (scope
-`kitchen:advance`, reached only via gateway's minted service token — a
+`kitchen:advance`, reached only via front-of-house's minted service token — a
 board calling kitchen directly with a staff token is still the ADR 0005/
 kitchen's own `auth.py` gap, unresolved by this phase) flips `Oven.status`
 and emits `oven.down`/`oven.restored` (already catalogued, SPEC.md §4) through

@@ -3,12 +3,12 @@ import uuid
 import httpx
 import pytest
 
-from simulator.client.api import GatewayClient, GatewayError
+from simulator.client.api import FrontOfHouseClient, FrontOfHouseError
 from simulator.client.models import OrderItemRequest
 
 
-def _client(handler: httpx.MockTransport) -> GatewayClient:
-    return GatewayClient("http://gateway", transport=handler)
+def _client(handler: httpx.MockTransport) -> FrontOfHouseClient:
+    return FrontOfHouseClient("http://front-of-house", transport=handler)
 
 
 async def test_authenticate_customer_posts_just_the_email_and_returns_the_access_token() -> None:
@@ -58,13 +58,13 @@ async def test_create_order_sends_a_fresh_idempotency_key_and_the_bearer_token()
     assert request.headers["idempotency-key"]
 
 
-async def test_a_4xx_response_raises_gateway_error_not_a_silent_result() -> None:
+async def test_a_4xx_response_raises_front_of_house_error_not_a_silent_result() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(422, json={"detail": "unknown sku"})
 
     client = _client(httpx.MockTransport(handler))
 
-    with pytest.raises(GatewayError) as exc_info:
+    with pytest.raises(FrontOfHouseError) as exc_info:
         await client.create_order(
             "tok-abc", address_id=uuid.uuid4(), items=[OrderItemRequest(sku="NOPE", qty=1)]
         )

@@ -6,7 +6,7 @@ design. The PII boundary here is access-level (the time-boxed grant, §6.2),
 not schema-level; see ADR 0007's introduction for why that distinction is
 deliberate rather than an inconsistency with kitchen's rule.
 
-`Outbox`/`ProcessedEvent` mirror the gateway's and kitchen's tables exactly
+`Outbox`/`ProcessedEvent` mirror front-of-house's and kitchen's tables exactly
 (DECISIONS.md §0004) — same shape, own database — so
 `dinner_rush_core.outbox`'s cursor-based relay/idempotency helpers work
 unmodified here too.

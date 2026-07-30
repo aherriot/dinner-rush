@@ -1,12 +1,12 @@
 from dinner_rush_core.config import load_config
 
 
-def test_loads_menu_gateway_and_speed_from_the_checked_in_example() -> None:
+def test_loads_menu_front_of_house_and_speed_from_the_checked_in_example() -> None:
     config = load_config()
 
     assert config.speed in (1, 10, 60)
-    assert config.gateway.delivery_fee_cents == 299
-    assert config.gateway.free_delivery_threshold_cents == 4000
+    assert config.front_of_house.delivery_fee_cents == 299
+    assert config.front_of_house.free_delivery_threshold_cents == 4000
 
     skus = {item.sku for item in config.menu}
     assert "MARG" in skus

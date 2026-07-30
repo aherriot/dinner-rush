@@ -23,7 +23,7 @@ def _envelope(event_type: str, payload: dict[str, object]) -> EventEnvelope:
         aggregate_id=uuid.uuid4(),
         sequence=1,
         correlation_id=uuid.uuid4(),
-        producer="gateway@0.1.0",
+        producer="front_of_house@0.1.0",
         payload=payload,
     )
 

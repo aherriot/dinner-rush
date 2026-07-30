@@ -15,19 +15,19 @@ rather than retrofitted into three services after Phases 4 and 7 extract
 `kitchen` and `dispatch`.
 
 Two things needed a decision beyond what DECISIONS.md already specifies to
-the SQL: how much of the event catalogue the gateway monolith can honestly
+the SQL: how much of the event catalogue the front-of-house monolith can honestly
 produce before those services exist, and which of the classified consumers
 (SPEC.md §4) actually gets built now versus deferred.
 
 ## Decisions
 
-### 1. The gateway produces the whole happy-path event chain, honestly labelled
+### 1. Front-of-house produces the whole happy-path event chain, honestly labelled
 
-Kitchen and dispatch don't exist until Phases 4 and 7, so `gateway.orders.tasks`
+Kitchen and dispatch don't exist until Phases 4 and 7, so `front_of_house.orders.tasks`
 still walks an accepted order all the way to `delivered` itself — same as the
 Phase 2 fake-progression thread it replaces, just on Celery with real
 per-item prep/bake seconds instead of fixed delays. Every step still fires
-its `EventEnvelope` with `producer: "gateway@0.1.0"`, including the ones the
+its `EventEnvelope` with `producer: "front_of_house@0.1.0"`, including the ones the
 catalogue eventually attributes to kitchen (`order.baking`, `order.baked`,
 `order.ready`) — the event *shape* is real and stable now; only the
 *producer* changes at extraction time. Fields that depend on infrastructure
@@ -65,12 +65,12 @@ Having exactly one consumer of each kind is enough to prove both guarantees
 with a test; a third consumer of either kind would be repetition, not new
 coverage.
 
-### 3. Each event-spine process is its own container, sharing the gateway image
+### 3. Each event-spine process is its own container, sharing the front-of-house image
 
 `relay`, `stream_consumer --group cg:analytics`, `stream_consumer --group
 cg:ws-fanout` and the Celery worker are separate `compose.yaml` services
 (`outbox-relay`, `consumer-analytics`, `consumer-ws-fanout`,
-`celery-worker`), not threads inside the `gateway` process. Same image,
+`celery-worker`), not threads inside the `front-of-house` process. Same image,
 different `command:`. This costs nothing extra to build and buys the Phase
 10 chaos demo: any one of them can be `docker compose stop`ped independently
 to show its specific failure mode (backlog growing on `cg:analytics`,
@@ -99,14 +99,14 @@ missed `NOTIFY`.
   publishes them and adding real oven-slot data, not designing the events.
 - Phase 7 (dispatch extraction) similarly inherits the shape gap: it must
   *add* `courier.assigned`, `order.picked_up`, `order.delivering` to the
-  catalogue rather than just changing their producer, since gateway never
+  catalogue rather than just changing their producer, since front-of-house never
   produced them.
 - `dinner_rush_core.outbox` and `dinner_rush_core.streams` take a plain
   DB-API cursor / redis-py client rather than an ORM, specifically so kitchen
   (SQLAlchemy) and dispatch (SQLAlchemy) reuse them unmodified in Phase 4/7.
 - The `outbox`/`processed_event` Django models set `db_table` explicitly to
   match the SQL in DECISIONS.md §0004 — the generic core functions assume
-  those table names by default in every service, not just gateway's.
+  those table names by default in every service, not just front-of-house's.
 
 ## Alternatives considered
 

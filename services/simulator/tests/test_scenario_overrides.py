@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from simulator.client.api import GatewayError
+from simulator.client.api import FrontOfHouseError
 from simulator.scenario_overrides import ScenarioOverrideTracker
 
 
@@ -64,9 +64,9 @@ def test_ignores_overrides_this_process_has_no_consumer_for() -> None:
     assert tracker.current_basket_size_weights({1: 1.0}) == {1: 1.0}
 
 
-async def test_a_gateway_error_does_not_crash_the_poll_loop() -> None:
+async def test_a_front_of_house_error_does_not_crash_the_poll_loop() -> None:
     tracker = ScenarioOverrideTracker(
-        _FakeClient(GatewayError(503, "unavailable")), poll_interval_seconds=0.01
+        _FakeClient(FrontOfHouseError(503, "unavailable")), poll_interval_seconds=0.01
     )
     task = asyncio.create_task(tracker.run_forever())
     await asyncio.sleep(0.05)

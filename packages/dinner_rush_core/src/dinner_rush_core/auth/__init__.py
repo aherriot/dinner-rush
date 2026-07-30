@@ -1,10 +1,10 @@
 """RS256 JWT verification and JWKS handling (SPEC.md §6.3).
 
-Gateway is the only signer — its private key never leaves it. Every other
-service (kitchen, dispatch) is a verifier: it fetches gateway's public key
+Front-of-house is the only signer — its private key never leaves it. Every other
+service (kitchen, dispatch) is a verifier: it fetches front-of-house's public key
 from `/.well-known/jwks.json`, caches it by `kid`, and checks signatures
 against it. This module is the verifier side plus the one bit of encoding
-(`build_jwk`) gateway reuses to publish its own key in the same shape a
+(`build_jwk`) front-of-house reuses to publish its own key in the same shape a
 verifier expects to parse.
 
 Claims, per SPEC.md §6.3: `sub`, `role`, `scope[]`, `exp`, `correlation_id`.
@@ -40,7 +40,7 @@ class Claims:
 
 def build_jwk(public_key: RSAPublicKey, kid: str) -> dict[str, object]:
     """Encode an RSA public key as a JWK — the shape both the publisher
-    (gateway's `/.well-known/jwks.json`) and `JWKSClient` below agree on."""
+    (front-of-house's `/.well-known/jwks.json`) and `JWKSClient` below agree on."""
     jwk: dict[str, object] = RSAAlgorithm.to_jwk(public_key, as_dict=True)
     jwk["kid"] = kid
     jwk["use"] = "sig"

@@ -1,7 +1,7 @@
 """Runtime SPEED override (SPEC.md §3.2, §5).
 
 `config.yaml`'s `speed` is the boot-time default; `POST /admin/speed`
-(gateway) changes it live by writing this key, and every service that
+(front-of-house) changes it live by writing this key, and every service that
 divides a duration by SPEED reads it from here first — one key, shared over
 the same Redis every service already connects to, so a runtime change is
 instant everywhere rather than requiring a restart or a per-service copy.

@@ -40,7 +40,7 @@ def client(session: Session, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestCl
         return jwks_body
 
     monkeypatch.setattr(
-        auth_module, "_jwks_client", JWKSClient("http://gateway/jwks", fetch=fetch)
+        auth_module, "_jwks_client", JWKSClient("http://front-of-house/jwks", fetch=fetch)
     )
     app.dependency_overrides[get_session] = lambda: session
     test_client = TestClient(app)
