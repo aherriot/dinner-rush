@@ -25,6 +25,36 @@ describe("StatusBar", () => {
     expect(screen.getByText("8%")).toBeInTheDocument();
   });
 
+  it("renders the Prometheus-backed backlog and promise-accuracy metrics", () => {
+    render(
+      <StatusBar
+        speed={1}
+        onSpeedChange={() => {}}
+        streamPending={14}
+        promiseErrorP95Seconds={47}
+        scenarios={scenarios}
+        onStartScenario={() => {}}
+        onStopScenario={() => {}}
+      />,
+    );
+    expect(screen.getByText("14")).toBeInTheDocument();
+    expect(screen.getByText("+47s")).toBeInTheDocument();
+  });
+
+  it("signs a negative promise error without a leading plus", () => {
+    render(
+      <StatusBar
+        speed={1}
+        onSpeedChange={() => {}}
+        promiseErrorP95Seconds={-8}
+        scenarios={scenarios}
+        onStartScenario={() => {}}
+        onStopScenario={() => {}}
+      />,
+    );
+    expect(screen.getByText("-8s")).toBeInTheDocument();
+  });
+
   it("calls onSpeedChange with a number when a speed segment is picked", () => {
     const onSpeedChange = vi.fn();
     render(

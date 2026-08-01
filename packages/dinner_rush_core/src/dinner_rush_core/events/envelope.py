@@ -6,7 +6,11 @@ counter — it lets a consumer notice it has already seen a *later* event and
 drop a stale redelivery, which is out-of-order protection layered on top of
 plain deduplication. `correlation_id` and `causation_id` together let the
 full fan-out tree of one order be reconstructed later (Phase 9's trace
-waterfall).
+waterfall). `trace_context` carries the W3C traceparent/tracestate across
+the one hop OTel's own instrumentation can't see automatically — the
+publish-to-stream/consume-from-stream boundary — so a trace stays connected
+across the async fan-out, not just the synchronous HTTP calls. Additive per
+the versioning policy below; older consumers ignore it.
 """
 
 from datetime import datetime
@@ -30,3 +34,4 @@ class EventEnvelope(BaseModel):
     causation_id: UUID | None = None
     producer: str
     payload: dict[str, Any]
+    trace_context: dict[str, str] | None = None

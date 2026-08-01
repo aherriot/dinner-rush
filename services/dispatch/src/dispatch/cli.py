@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from dinner_rush_core.config import load_config
 from dinner_rush_core.events.envelope import EventEnvelope
 from dinner_rush_core.outbox import relay_batch
-from dinner_rush_core.streams import ack, autoclaim, ensure_group, read_batch
+from dinner_rush_core.streams import ack, autoclaim, ensure_group, read_batch, span_from_envelope
 from dinner_rush_core.streams import publish as stream_publish
 from dispatch import settings
 from dispatch.consumers import HANDLERS
@@ -27,6 +27,7 @@ from dispatch.db import SessionLocal
 from dispatch.dbapi import raw_cursor
 from dispatch.geo import COURIERS_GEO_KEY, set_position
 from dispatch.models import Courier
+from dispatch.observability import configure
 from dispatch.redis_client import get_redis_client
 from dispatch.writer import OUTBOX_NOTIFY_CHANNEL
 
@@ -49,6 +50,7 @@ def _scatter_position(config: Any, index: int, count: int) -> tuple[int, int]:
 
 
 def run_stream_consumer(group: str, consumer_name: str | None = None) -> None:
+    configure()
     handler: Callable[[Session, EventEnvelope], None] = HANDLERS[group]
     consumer = consumer_name or f"{socket.gethostname()}-{group}"
     client = get_redis_client()
@@ -77,7 +79,8 @@ def run_stream_consumer(group: str, consumer_name: str | None = None) -> None:
         for message in [*reclaimed, *fresh]:
             session = SessionLocal()
             try:
-                handler(session, message.envelope)
+                with span_from_envelope(message.envelope, f"consume {group}"):
+                    handler(session, message.envelope)
             except Exception as exc:
                 print(f"stream_consumer[{group}]: error, will retry — {exc}", file=sys.stderr)
                 session.rollback()
@@ -88,6 +91,7 @@ def run_stream_consumer(group: str, consumer_name: str | None = None) -> None:
 
 
 def run_relay() -> None:
+    configure()
     config = load_config()
     redis_client = get_redis_client()
     poll_seconds = config.streams.outbox_poll_ms / 1000

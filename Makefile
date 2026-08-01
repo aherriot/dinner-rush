@@ -66,6 +66,7 @@ lint: ## ruff, mypy, stylelint, eslint, token + generated-client drift check
 storybook: ## design system — tokens, primitives, DINNER RUSH wordmark
 	cd apps/web && pnpm run storybook
 
-load: ## k6 run; writes docs/load/latest.json — lands in Phase 9
-	@echo "make load: not implemented yet — see PHASES.md Phase 9"
-	@exit 1
+load: ## k6 run against a live stack; writes docs/load/latest.json
+	@mkdir -p docs/load
+	docker compose --profile load run --rm k6 run /scripts/rush.js
+	@echo "make load: wrote docs/load/latest.json"

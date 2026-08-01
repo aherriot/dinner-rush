@@ -46,7 +46,7 @@ import {
   type KitchenOvenRaw,
   type KitchenTicketRaw,
 } from "./boardState";
-import { useBoardSocket, type BoardEnvelope } from "./useBoardSocket";
+import { useBoardSocket, type BoardEnvelope, type BoardMetricsMessage } from "./useBoardSocket";
 
 const PULSE_ANIMATION_MS = 300;
 
@@ -165,6 +165,7 @@ function BoardDashboard() {
   const [activeScenarios, setActiveScenarios] = useState<string[]>([]);
   const [now, setNow] = useState(() => Date.now());
   const [view, setView] = useState<"board" | "system">("board");
+  const [boardMetrics, setBoardMetrics] = useState<BoardMetricsMessage | null>(null);
 
   // Drives the live pulses on the System view's architecture diagram — kept
   // as its own hook (rather than component state here) so the timer
@@ -292,7 +293,11 @@ function BoardDashboard() {
     [debouncedResync, notifyEvent],
   );
 
-  const { connected } = useBoardSocket(handleBoardEvent);
+  const handleBoardMetrics = useCallback((message: BoardMetricsMessage) => {
+    setBoardMetrics(message);
+  }, []);
+
+  const { connected } = useBoardSocket(handleBoardEvent, handleBoardMetrics);
 
   const handleSpeedChange = useCallback(
     (nextSpeed: SpeedValue) => {
@@ -413,6 +418,8 @@ function BoardDashboard() {
             onSpeedChange={handleSpeedChange}
             ordersPerMinute={ordersPerMinute(orders, now)}
             p95LatePercent={lateRatioPercent(orders)}
+            streamPending={boardMetrics?.stream_pending ?? undefined}
+            promiseErrorP95Seconds={boardMetrics?.promise_error_p95_seconds ?? undefined}
             scenarios={CHAOS_SCENARIOS}
             activeScenarios={activeScenarios}
             onStartScenario={handleStartScenario}

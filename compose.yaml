@@ -95,6 +95,9 @@ x-simulator-image: &simulator-image
     context: .
     dockerfile: services/simulator/Dockerfile
 
+x-k6-image: &k6-image
+  image: grafana/k6:2.1.0
+
 services:
   front-of-house-db:
     image: postgres:18.4-alpine
@@ -170,7 +173,9 @@ services:
 
   celery-worker:
     <<: *front-of-house-image
-    command: ["celery", "-A", "front_of_house", "worker", "--loglevel=info"]
+    # `-B`: embedded beat, so the one 5-second `push_board_metrics` tick
+    # (Phase 9) doesn't need its own container.
+    command: ["celery", "-A", "front_of_house", "worker", "--loglevel=info", "-B"]
     environment: *front-of-house-env
     volumes: *front-of-house-volumes
     depends_on: *front-of-house-depends-on
@@ -384,6 +389,71 @@ services:
     depends_on: *dispatch-depends-on
     healthcheck: *worker-healthcheck
     restart: unless-stopped
+
+  # Phase 9 — every process's traces and metrics land here over OTLP and
+  # fan out to Tempo (traces) and Prometheus (metrics, via one aggregated
+  # `/metrics` on :8889 rather than one endpoint per container — ADR 0009).
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.157.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317" # host-side debugging/smoke-testing convenience
+    depends_on:
+      tempo:
+        condition: service_started
+
+  tempo:
+    # Pinned: `latest` currently resolves to Tempo v3's scheduler/worker
+    # architecture, an incompatible config schema for the single-binary
+    # setup this demo needs. 2.7.x is the last monolithic-mode line.
+    image: grafana/tempo:2.7.1
+    command: ["-config.file=/etc/tempo.yaml"]
+    ports:
+      - "3200:3200" # host-side debugging/smoke-testing convenience
+    volumes:
+      - ./observability/tempo.yaml:/etc/tempo.yaml:ro
+
+  prometheus:
+    image: prom/prometheus:v3.13.2
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      otel-collector:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:13.1.1
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/etc/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+      tempo:
+        condition: service_started
+
+  # `make load` (Phase 9) — profile-gated like `simulator`, so it never
+  # starts as part of `make up`/`make demo`.
+  k6:
+    <<: *k6-image
+    profiles: ["load"]
+    volumes:
+      - ./scripts/load:/scripts:ro
+      - ./docs/load:/out
+    depends_on:
+      front-of-house:
+        condition: service_healthy
 
   # An ordinary API client (CLAUDE.md §5) — `make sim`/`make rush` run this
   # with `docker compose run`, not `up`, so it never starts as part of

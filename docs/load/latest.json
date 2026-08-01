@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-08-01T01:39:14.620Z",
+  "command": "make load",
+  "duration_seconds": 80,
+  "speed": 60,
+  "orders": {
+    "total": 355,
+    "accepted": 150,
+    "rejected": 205,
+    "failed": 0,
+    "accepted_per_minute": 113,
+    "rejection_rate_percent": 57.7
+  },
+  "http_req_duration_ms": {
+    "p50": 164,
+    "p95": 591.6
+  },
+  "http_req_failed_rate_percent": 0
+}

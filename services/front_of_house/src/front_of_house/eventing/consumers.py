@@ -149,6 +149,20 @@ class BoardConsumer(AsyncJsonWebsocketConsumer):
             }
         )
 
+    async def board_metrics(self, message: dict[str, Any]) -> None:
+        """Dispatched for `{"type": "board.metrics", ...}` group_sends
+        (Phase 9) — `stream_pending` and `promise_error_p95_seconds`,
+        pushed every 5s from Prometheus by `eventing.tasks.push_board_metrics`
+        on the same channel as domain events rather than a second
+        connection."""
+        await self.send_json(
+            {
+                "type": "board.metrics",
+                "stream_pending": message["stream_pending"],
+                "promise_error_p95_seconds": message["promise_error_p95_seconds"],
+            }
+        )
+
     async def _replay(self, stream: str, last_event_id: str) -> None:
         client = get_redis_client()
         try:

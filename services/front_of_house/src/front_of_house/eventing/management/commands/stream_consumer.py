@@ -20,9 +20,10 @@ from typing import Any
 from django.core.management.base import BaseCommand, CommandParser
 
 from dinner_rush_core.config import load_config
-from dinner_rush_core.streams import ack, autoclaim, ensure_group, read_batch
+from dinner_rush_core.streams import ack, autoclaim, ensure_group, read_batch, span_from_envelope
 from front_of_house.eventing.handlers import HANDLERS
 from front_of_house.eventing.redis_client import get_redis_client
+from front_of_house.observability import configure
 
 DEFAULT_STREAM = "events:order"
 
@@ -43,6 +44,7 @@ class Command(BaseCommand):
         consumer_name: str | None,
         **_options: Any,
     ) -> None:
+        configure()
         handler = HANDLERS[group]
         consumer = consumer_name or f"{socket.gethostname()}-{group}-{stream}"
         client = get_redis_client()
@@ -72,7 +74,8 @@ class Command(BaseCommand):
             )
             for message in [*reclaimed, *fresh]:
                 try:
-                    handler(message)
+                    with span_from_envelope(message.envelope, f"consume {group}"):
+                        handler(message)
                 except Exception as exc:
                     self.stderr.write(f"stream_consumer[{group}]: error, will retry — {exc}")
                     continue

@@ -22,6 +22,7 @@ from kitchen.celery_app import app  # noqa: F401 - registers this module's tasks
 from kitchen.db import SessionLocal
 from kitchen.fsm import apply_transition, is_terminal
 from kitchen.models import Ticket
+from kitchen.observability import order_cook_seconds, slot_claim_contention_total
 from kitchen.slots import ClaimedSlot, claim_slot, release_slot
 from kitchen.speed import get_speed as _speed
 from kitchen.writer import build_envelope, write_outbox_event
@@ -84,6 +85,7 @@ def advance_ticket(
         if step.event == "start_bake":
             claimed = claim_slot(session, ticket.order_id, ticket.total_bake_seconds / _speed())
             if claimed is None:
+                slot_claim_contention_total.add(1)
                 session.rollback()
                 advance_ticket.apply_async(
                     args=(ticket_id, step_index, sequence, causation_id),
@@ -100,6 +102,13 @@ def advance_ticket(
             ticket.started_at = now
         if to_status == "boxed":
             ticket.baked_at = now
+            if ticket.started_at is not None:
+                # `started_at` round-tripped through a naive `TIMESTAMP` column
+                # (Ticket.started_at has no `timezone=True`) — this codebase's
+                # datetimes are naive-but-UTC throughout, so drop `now`'s
+                # tzinfo rather than add one to the column.
+                started_at = ticket.started_at.replace(tzinfo=None)
+                order_cook_seconds.record((now.replace(tzinfo=None) - started_at).total_seconds())
         if to_status == "ready":
             ticket.ready_at = now
 

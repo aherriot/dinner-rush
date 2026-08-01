@@ -15,6 +15,7 @@ from front_of_house.common.authentication import get_actor
 from front_of_house.common.permissions import IsCustomer, IsOwnOrderOrManager
 from front_of_house.customers.models import Address, Customer
 from front_of_house.eventing.writer import build_envelope, write_outbox_event
+from front_of_house.observability import order_rejections_total, orders_placed_total
 from front_of_house.orders import kitchen_client, pricing, rejection
 from front_of_house.orders.fsm import apply_transition
 from front_of_house.orders.models import Order, OrderCodeSequence, OrderItem, OrderStatusEvent
@@ -166,6 +167,8 @@ class OrderCreateView(APIView):
                         },
                     )
                 )
+                orders_placed_total.add(1, {"outcome": "rejected"})
+                order_rejections_total.add(1, {"reason": reason})
                 response_status = 202
             else:
                 assert quote is not None  # reached only after a capacity quote said yes
@@ -195,6 +198,7 @@ class OrderCreateView(APIView):
                     },
                 )
                 write_outbox_event(accepted_envelope)
+                orders_placed_total.add(1, {"outcome": "accepted"})
                 response_status = 201
 
         order = Order.objects.prefetch_related("items").get(id=order.id)
