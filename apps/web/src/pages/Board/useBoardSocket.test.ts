@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setAccessToken } from "../../api/client";
-import { useBoardSocket, type BoardEnvelope } from "./useBoardSocket";
+import { useBoardSocket, type BoardEnvelope, type BoardMetricsMessage } from "./useBoardSocket";
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
@@ -20,7 +20,11 @@ class FakeWebSocket {
     this.onopen?.();
   }
 
-  emitMessage(event: Partial<BoardEnvelope> & { stream: BoardEnvelope["stream"] }): void {
+  emitMessage(
+    event:
+      | (Partial<BoardEnvelope> & { stream: BoardEnvelope["stream"] })
+      | BoardMetricsMessage,
+  ): void {
     this.onmessage?.({ data: JSON.stringify(event) } as MessageEvent<string>);
   }
 
@@ -71,6 +75,28 @@ describe("useBoardSocket", () => {
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({ event_type: "order.ready", stream_id: "1700000000000-0" }),
     );
+  });
+
+  it("routes board.metrics messages to onMetrics, not onEvent, and doesn't track them as a stream position", () => {
+    const onEvent = vi.fn();
+    const onMetrics = vi.fn();
+    renderHook(() => useBoardSocket(onEvent, onMetrics));
+    const socket = FakeWebSocket.instances[0];
+
+    act(() =>
+      socket.emitMessage({
+        type: "board.metrics",
+        stream_pending: 14,
+        promise_error_p95_seconds: 47,
+      }),
+    );
+
+    expect(onMetrics).toHaveBeenCalledWith({
+      type: "board.metrics",
+      stream_pending: 14,
+      promise_error_p95_seconds: 47,
+    });
+    expect(onEvent).not.toHaveBeenCalled();
   });
 
   it("tracks last_event_id independently per stream and resends them on reconnect", () => {

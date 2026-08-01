@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from dinner_rush_core.events.catalogue import stream_for
 from dinner_rush_core.events.envelope import EventEnvelope
+from dinner_rush_core.observability import current_trace_context
 from dispatch.dbapi import raw_cursor
 
 OUTBOX_NOTIFY_CHANNEL = "outbox_channel"
@@ -40,6 +41,7 @@ def build_envelope(
         causation_id=causation_id,
         producer=PRODUCER,
         payload=payload,
+        trace_context=current_trace_context(),
     )
 
 

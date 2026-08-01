@@ -259,15 +259,28 @@ jobs:
         run: |
           deadline=$((SECONDS + 90))
           while true; do
-            unhealthy=$(docker compose ps --format '{{.Health}}' | grep -v -c '^healthy$' || true)
+            # A blank .Health means the service has no HEALTHCHECK at all
+            # (true of otel-collector, prometheus, tempo, grafana — none
+            # ship a shell, so a container-level healthcheck isn't possible
+            # for at least otel-collector) — `docker compose up --wait`
+            # itself already treats "no healthcheck" as fine as long as the
+            # container is actually running, not as failing; this loop
+            # matches that same semantics rather than requiring a status
+            # that can never happen. Still requires State=running either
+            # way, so a genuinely crashed container isn't masked by having
+            # no healthcheck to report. `-a`: plain `docker compose ps`
+            # only lists running containers, so a container that crashed
+            # and fully exited would otherwise vanish from this check
+            # entirely instead of being caught by the State!=running test.
+            unhealthy=$(docker compose ps -a --format '{{.State}} {{.Health}}' | awk '$1 != "running" || ($2 != "" && $2 != "healthy")' | wc -l | tr -d ' ')
             if [ "$unhealthy" -eq 0 ]; then
               echo "all containers healthy"
-              docker compose ps
+              docker compose ps -a
               exit 0
             fi
             if [ $SECONDS -ge $deadline ]; then
               echo "containers did not become healthy within 90s"
-              docker compose ps
+              docker compose ps -a
               docker compose logs
               exit 1
             fi

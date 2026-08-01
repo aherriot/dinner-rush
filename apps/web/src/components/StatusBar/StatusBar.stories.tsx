@@ -39,6 +39,8 @@ export const Calm: Story = {
     onSpeedChange: () => {},
     ordersPerMinute: 6,
     p95LatePercent: 2,
+    streamPending: 0,
+    promiseErrorP95Seconds: -8,
     scenarios,
     activeScenarios: [],
     onStartScenario: () => {},
@@ -54,6 +56,8 @@ export const RushActive: Story = {
     speed: 10,
     ordersPerMinute: 38,
     p95LatePercent: 22,
+    streamPending: 14,
+    promiseErrorP95Seconds: 47,
     activeScenarios: ["friday_rush", "oven_down"],
   },
 };

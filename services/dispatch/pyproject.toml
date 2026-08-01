@@ -13,6 +13,9 @@ dependencies = [
     "redis>=8.0,<9",
     "pydantic>=2.13,<3",
     "dinner-rush-core",
+    "opentelemetry-instrumentation-fastapi>=0.51b0,<1",
+    "opentelemetry-instrumentation-httpx>=0.51b0,<1",
+    "opentelemetry-instrumentation-celery>=0.51b0,<1",
 ]
 
 [dependency-groups]

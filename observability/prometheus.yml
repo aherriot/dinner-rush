@@ -1,0 +1,11 @@
+# One scrape target: the otel-collector's own Prometheus exporter, which
+# already carries every service's metrics (ADR 0009) — there is nothing to
+# gain from scraping each container separately when they all export through
+# the same collector.
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8889"]

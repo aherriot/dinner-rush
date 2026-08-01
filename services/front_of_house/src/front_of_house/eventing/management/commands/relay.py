@@ -17,12 +17,14 @@ from dinner_rush_core.outbox import relay_batch
 from dinner_rush_core.streams import publish as stream_publish
 from front_of_house.eventing.redis_client import get_redis_client
 from front_of_house.eventing.writer import OUTBOX_NOTIFY_CHANNEL
+from front_of_house.observability import configure
 
 
 class Command(BaseCommand):
     help = "Relay unpublished outbox rows to Redis Streams."
 
     def handle(self, *_args: Any, **_options: Any) -> None:
+        configure()
         config = load_config()
         redis_client = get_redis_client()
         poll_seconds = config.streams.outbox_poll_ms / 1000

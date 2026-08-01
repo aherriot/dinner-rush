@@ -21,3 +21,14 @@ def _dispose_engine_in_forked_worker(**_kwargs: object) -> None:
     from dispatch.db import engine
 
     engine.dispose()
+
+
+@worker_process_init.connect
+def _configure_otel_in_forked_worker(**_kwargs: object) -> None:
+    """Same fork hazard as above, for `BatchSpanProcessor`'s background
+    export thread — see kitchen's identical hook for the full reasoning.
+    `configure()` also instruments Celery itself (both producer and
+    consumer side) — see its own docstring."""
+    from dispatch.observability import configure
+
+    configure()

@@ -19,13 +19,14 @@ from sqlalchemy.orm import Session
 from dinner_rush_core.config import load_config
 from dinner_rush_core.events.envelope import EventEnvelope
 from dinner_rush_core.outbox import relay_batch
-from dinner_rush_core.streams import ack, autoclaim, ensure_group, read_batch
+from dinner_rush_core.streams import ack, autoclaim, ensure_group, read_batch, span_from_envelope
 from dinner_rush_core.streams import publish as stream_publish
 from kitchen import settings
 from kitchen.consumers import HANDLERS
 from kitchen.db import SessionLocal
 from kitchen.dbapi import raw_cursor
 from kitchen.models import Oven, OvenSlot, Station
+from kitchen.observability import configure
 from kitchen.reconcile import reconcile_stuck_tickets
 from kitchen.redis_client import get_redis_client
 from kitchen.slots import reap_stuck_slots
@@ -36,6 +37,7 @@ STREAM = "events:order"  # kitchen only consumes order.accepted off this stream
 
 
 def run_stream_consumer(group: str, consumer_name: str | None = None) -> None:
+    configure()
     handler: Callable[[Session, EventEnvelope], None] = HANDLERS[group]
     consumer = consumer_name or f"{socket.gethostname()}-{group}"
     client = get_redis_client()
@@ -64,7 +66,8 @@ def run_stream_consumer(group: str, consumer_name: str | None = None) -> None:
         for message in [*reclaimed, *fresh]:
             session = SessionLocal()
             try:
-                handler(session, message.envelope)
+                with span_from_envelope(message.envelope, f"consume {group}"):
+                    handler(session, message.envelope)
             except Exception as exc:
                 print(f"stream_consumer[{group}]: error, will retry — {exc}", file=sys.stderr)
                 session.rollback()
@@ -75,6 +78,7 @@ def run_stream_consumer(group: str, consumer_name: str | None = None) -> None:
 
 
 def run_relay() -> None:
+    configure()
     config = load_config()
     redis_client = get_redis_client()
     poll_seconds = config.streams.outbox_poll_ms / 1000
@@ -176,6 +180,7 @@ def run_reap() -> None:
     lost) were each written as idempotent, standalone functions but never
     actually run anywhere; this loop is what closes that gap, on
     `slot_reaper_interval_seconds`'s cadence for both."""
+    configure()
     config = load_config()
     interval = config.kitchen.slot_reaper_interval_seconds
     slot_grace = config.kitchen.slot_reaper_grace_seconds

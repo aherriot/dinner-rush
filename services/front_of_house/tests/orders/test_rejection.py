@@ -5,6 +5,7 @@ from dinner_rush_core.config import (
     FrontOfHouseConfig,
     GridConfig,
     KitchenConfig,
+    ObservabilityConfig,
     RestaurantConfig,
     RootConfig,
     ServiceClientConfig,
@@ -71,6 +72,13 @@ def _config(max_delivery_distance_cells: int = 45) -> RootConfig:
             circuit_breaker_reset_seconds=30,
         ),
         simulator=SimulatorConfig(customers=SimulatorCustomersConfig(population=50)),
+        observability=ObservabilityConfig(
+            otel_endpoint="http://otel-collector:4317",
+            trace_sample_ratio=1.0,
+            metrics_port=9100,
+            log_level="INFO",
+            log_format="json",
+        ),
     )
 
 

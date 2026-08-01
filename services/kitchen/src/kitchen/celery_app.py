@@ -22,3 +22,15 @@ def _dispose_engine_in_forked_worker(**_kwargs: object) -> None:
     from kitchen.db import engine
 
     engine.dispose()
+
+
+@worker_process_init.connect
+def _configure_otel_in_forked_worker(**_kwargs: object) -> None:
+    """Same fork hazard as above, for a different resource: `BatchSpanProcessor`'s
+    background export thread doesn't survive a fork, so OTel setup has to
+    happen after the prefork pool forks each child, not at import time.
+    `configure()` also instruments Celery itself (both producer and
+    consumer side) — see its own docstring."""
+    from kitchen.observability import configure
+
+    configure()

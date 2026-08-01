@@ -158,6 +158,16 @@ class SimulatorConfig(BaseModel):
     customers: SimulatorCustomersConfig
 
 
+class ObservabilityConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    otel_endpoint: str
+    trace_sample_ratio: float
+    metrics_port: int
+    log_level: str
+    log_format: str
+
+
 class RootConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -169,6 +179,7 @@ class RootConfig(BaseModel):
     streams: StreamsConfig
     service_client: ServiceClientConfig
     simulator: SimulatorConfig
+    observability: ObservabilityConfig
 
 
 class ConfigNotFoundError(FileNotFoundError):

@@ -36,6 +36,7 @@ from dinner_rush_core.events.envelope import EventEnvelope
 from dinner_rush_core.outbox import mark_processed_or_skip
 from dinner_rush_core.streams import StreamMessage
 from front_of_house.eventing.models import EventTypeCounter
+from front_of_house.observability import promise_error_seconds
 from front_of_house.orders.fsm import is_terminal
 from front_of_house.orders.models import Order, OrderStatusEvent
 
@@ -144,6 +145,9 @@ def handle_order_sync(envelope: EventEnvelope) -> None:
             order.ready_at = timezone.now()
         if to_status == "delivered":
             order.delivered_at = timezone.now()
+            if order.promised_at is not None:
+                error_seconds = (order.delivered_at - order.promised_at).total_seconds()
+                promise_error_seconds.record(error_seconds)
         order.save()
         OrderStatusEvent.objects.create(
             order=order, from_status=from_status, to_status=to_status, event=fsm_event

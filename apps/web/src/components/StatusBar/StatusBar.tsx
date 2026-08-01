@@ -21,11 +21,24 @@ export interface StatusBarProps {
   onSpeedChange: (speed: SpeedValue) => void;
   ordersPerMinute?: number;
   p95LatePercent?: number;
+  /** `sum(stream_pending)` (SPEC.md §7, Phase 9) — the backlog a chaos demo
+   * drains, pushed from Prometheus over the board socket every ~5s rather
+   * than computed client-side, unlike `ordersPerMinute`/`p95LatePercent`. */
+  streamPending?: number;
+  /** p95 of `promise_error_seconds` (Phase 9) — signed seconds, `delivered_at`
+   * minus `promised_at`; positive means late. The falsifiable sibling of the
+   * client-approximated `p95LatePercent` tile. */
+  promiseErrorP95Seconds?: number;
   scenarios: ChaosScenarioOption[];
   activeScenarios?: string[];
   onStartScenario: (name: string) => void;
   onStopScenario: (name: string) => void;
   connected?: boolean;
+}
+
+function formatSignedSeconds(seconds: number): string {
+  const rounded = Math.round(seconds);
+  return rounded > 0 ? `+${rounded}s` : `${rounded}s`;
 }
 
 function useClock(): string {
@@ -49,6 +62,8 @@ export function StatusBar({
   onSpeedChange,
   ordersPerMinute,
   p95LatePercent,
+  streamPending,
+  promiseErrorP95Seconds,
   scenarios,
   activeScenarios = [],
   onStartScenario,
@@ -87,6 +102,18 @@ export function StatusBar({
         <MetricTile
           label="p95 late"
           value={p95LatePercent !== undefined ? `${p95LatePercent}%` : undefined}
+        />
+        <MetricTile
+          label="Backlog"
+          value={streamPending !== undefined ? String(streamPending) : undefined}
+        />
+        <MetricTile
+          label="Promise p95"
+          value={
+            promiseErrorP95Seconds !== undefined
+              ? formatSignedSeconds(promiseErrorP95Seconds)
+              : undefined
+          }
         />
       </div>
 

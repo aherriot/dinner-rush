@@ -1,0 +1,45 @@
+# The one place every process's traces and metrics land (ADR 0009). Traces
+# forward to Tempo; metrics are exposed on :8889 for Prometheus to scrape —
+# one target instead of one per container, which is the whole point (see
+# the ADR for why: this project runs many OS processes per logical service,
+# and a raw per-process Prometheus endpoint can't see metrics recorded in a
+# sibling container).
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    # Default is 5m — too long for a project whose services get rebuilt and
+    # restarted constantly during development. Without this, every kitchen/
+    # front-of-house process the collector has ever seen keeps being
+    # re-exported at its last-known value indefinitely (the collector has
+    # no signal that a resource disappeared, only that it stopped sending),
+    # so a dashboard queried hours into a dev session accumulates one
+    # duplicate line per past container instance instead of showing the
+    # current one. Short on purpose: this only ever needs to outlive one
+    # collection interval's worth of processes that are still genuinely up.
+    metric_expiration: 1m
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]

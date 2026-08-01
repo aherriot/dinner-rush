@@ -1,0 +1,21 @@
+# Checked in, not click-ops (CLAUDE.md's "make demo from a clean clone must
+# work first try") — a fresh `make up` gets both datasources wired with no
+# manual setup in Grafana's UI.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      tracesToMetrics:
+        datasourceUid: prometheus

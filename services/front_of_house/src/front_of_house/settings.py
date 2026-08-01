@@ -117,6 +117,16 @@ CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = None
 CELERY_TASK_DEFAULT_QUEUE = "front_of_house"
 
+# Phase 9: the celery-worker container runs with `-B` (embedded beat) so
+# this is the only periodic schedule in the process — no separate beat
+# container for one 5-second tick.
+CELERY_BEAT_SCHEDULE = {
+    "push-board-metrics": {
+        "task": "front_of_house.eventing.tasks.push_board_metrics",
+        "schedule": 5.0,
+    },
+}
+
 # `socket_timeout` is explicit and deliberately longer than channels_redis's
 # own internal receive-loop poll (`brpop_timeout = 5`, hardcoded in
 # channels_redis.core). redis-py 8.x's `ConnectionPool.from_url` defaults

@@ -19,6 +19,10 @@ dependencies = [
     "cryptography>=44,<45",
     "pyjwt[crypto]>=2.10,<3",
     "dinner-rush-core",
+    "opentelemetry-instrumentation-django>=0.51b0,<1",
+    "opentelemetry-instrumentation-httpx>=0.51b0,<1",
+    "opentelemetry-instrumentation-celery>=0.51b0,<1",
+    "opentelemetry-instrumentation-asgi>=0.51b0,<1",
 ]
 
 [dependency-groups]
