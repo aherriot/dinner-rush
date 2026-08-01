@@ -6,7 +6,14 @@ consumer). `configure_web()` additionally instruments Django's request
 cycle and outbound httpx calls, which is what makes the synchronous half of
 a trace — front-of-house calling kitchen's `/capacity/quote` — connect
 automatically; the async half (the event spine) is wired separately in
-`dinner_rush_core.streams`.
+`dinner_rush_core.streams`. It's also the only place `stream_pending` gets
+registered: front-of-house runs around ten OS processes (web, celery
+worker, relay, seven stream consumers), and this is a pull-based gauge that
+reads the same Redis state regardless of which process asks — registering
+it everywhere doesn't make the number more correct, it just makes
+Prometheus store ten near-identical time series that Grafana draws as ten
+overlapping lines instead of one. Caught live, by looking at the dashboard
+and counting lines, not by a test.
 """
 
 from collections.abc import Iterable
@@ -64,6 +71,12 @@ def configure_web() -> None:
     DjangoInstrumentor().instrument()
     HTTPXClientInstrumentor().instrument()
 
+    _meter.create_observable_gauge(
+        "stream_pending",
+        callbacks=[_stream_pending_callback],
+        description="pending+lag per (stream, consumer group) — the backlog a chaos demo drains",
+    )
+
 
 _meter = get_meter(SERVICE_NAME)
 
@@ -95,10 +108,3 @@ def _stream_pending_callback(_options: CallbackOptions) -> Iterable[Observation]
         except Exception:
             continue
         yield Observation(count, {"stream": stream, "group": group})
-
-
-_meter.create_observable_gauge(
-    "stream_pending",
-    callbacks=[_stream_pending_callback],
-    description="pending+lag per (stream, consumer group) — the backlog a chaos demo drains",
-)

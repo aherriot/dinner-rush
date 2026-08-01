@@ -22,6 +22,16 @@ exporters:
       insecure: true
   prometheus:
     endpoint: 0.0.0.0:8889
+    # Default is 5m — too long for a project whose services get rebuilt and
+    # restarted constantly during development. Without this, every kitchen/
+    # front-of-house process the collector has ever seen keeps being
+    # re-exported at its last-known value indefinitely (the collector has
+    # no signal that a resource disappeared, only that it stopped sending),
+    # so a dashboard queried hours into a dev session accumulates one
+    # duplicate line per past container instance instead of showing the
+    # current one. Short on purpose: this only ever needs to outlive one
+    # collection interval's worth of processes that are still genuinely up.
+    metric_expiration: 1m
 
 service:
   pipelines:

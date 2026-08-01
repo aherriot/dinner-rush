@@ -4,10 +4,11 @@ from fastapi import FastAPI
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
-from kitchen.observability import configure
+from kitchen.observability import configure, register_pull_gauges
 from kitchen.routers import capacity, health, ovens, queue, tickets
 
 configure()
+register_pull_gauges()
 
 app = FastAPI(title="Dinner Rush — kitchen")
 

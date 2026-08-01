@@ -2,12 +2,21 @@
 
 `configure()` is the plain bootstrap; `main.py` additionally instruments
 the FastAPI app and outbound httpx (JWKS fetch) so the synchronous half of
-a trace connects automatically. The gauges here are all pull-based
-(`ObservableGauge` callbacks that query Postgres directly at each collection
-tick) rather than manually incremented/decremented — kitchen runs several
-OS processes (web, celery worker, relay, consumer, reaper) and a gauge that
-reflects live external state is naturally correct regardless of which
-process last touched it, unlike a counter.
+a trace connects automatically, and calls `register_pull_gauges()`.
+
+`oven_slots_occupied`/`kitchen_queue_depth` are pull-based (`ObservableGauge`
+callbacks that query Postgres directly at each collection tick) rather than
+manually incremented/decremented, since they read shared state any process
+can see identically. That's exactly why `register_pull_gauges()` is called
+from `main.py` only, not from `configure()` — kitchen runs five OS processes
+(web, celery worker, relay, consumer, reaper), and every one of them reading
+and re-exporting the *same* Postgres query independently doesn't make the
+number more correct, it just makes Prometheus store five (or more, counting
+Celery's prefork sub-processes) identical, redundant time series that
+Grafana then draws as five overlapping lines instead of one. Query for
+`kitchen_queue_depth` with no aggregation and count the lines to see this —
+it was live at one point, caught by actually looking at the dashboard, not
+by a test.
 
 Kitchen does *not* report its own `stream_pending{group="cg:kitchen"}` —
 `front_of_house.observability` reports every consumer group across all
@@ -99,13 +108,24 @@ def _queue_depth_callback(_options: CallbackOptions) -> Iterable[Observation]:
     yield Observation(depth)
 
 
-_meter.create_observable_gauge(
-    "oven_slots_occupied",
-    callbacks=[_oven_occupancy_callback],
-    description="oven_slot rows by occupancy state — filter on state=occupied/total",
-)
-_meter.create_observable_gauge(
-    "kitchen_queue_depth",
-    callbacks=[_queue_depth_callback],
-    description="Tickets not yet ready — the number that climbs during a rush",
-)
+_gauges_registered = False
+
+
+def register_pull_gauges() -> None:
+    """Call once, from `main.py` only — see the module docstring for why
+    every other kitchen process must *not* call this."""
+    global _gauges_registered
+    if _gauges_registered:
+        return
+    _gauges_registered = True
+
+    _meter.create_observable_gauge(
+        "oven_slots_occupied",
+        callbacks=[_oven_occupancy_callback],
+        description="oven_slot rows by occupancy state — filter on state=occupied/total",
+    )
+    _meter.create_observable_gauge(
+        "kitchen_queue_depth",
+        callbacks=[_queue_depth_callback],
+        description="Tickets not yet ready — the number that climbs during a rush",
+    )

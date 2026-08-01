@@ -42,9 +42,10 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "max(), not a bare metric name: a pull-based gauge like this reads the same Postgres state regardless of which process reports it, so collapsing on the reporting instance is defensive even though only one process (kitchen's main.py) registers it.",
       "targets": [
         {
-          "expr": "kitchen_queue_depth",
+          "expr": "max(kitchen_queue_depth)",
           "legendFormat": "queue depth",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         }
@@ -58,12 +59,12 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "oven_slots_occupied{state=\"occupied\"}",
+          "expr": "max by (state) (oven_slots_occupied{state=\"occupied\"})",
           "legendFormat": "occupied",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         },
         {
-          "expr": "oven_slots_occupied{state=\"total\"}",
+          "expr": "max by (state) (oven_slots_occupied{state=\"total\"})",
           "legendFormat": "total",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         }
@@ -78,7 +79,7 @@
       "description": "Watch group=cg:dispatch climb during `docker compose stop dispatch` and drain on restart (PHASES.md Phase 10).",
       "targets": [
         {
-          "expr": "stream_pending",
+          "expr": "max by (group, stream) (stream_pending)",
           "legendFormat": "{{group}} / {{stream}}",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         }
@@ -128,10 +129,10 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "description": "Claim attempts that lost the SKIP LOCKED race or found the oven genuinely full (DECISIONS.md §0002).",
+      "description": "Claim attempts that lost the SKIP LOCKED race or found the oven genuinely full (DECISIONS.md §0002). sum(), not a bare rate(): kitchen-celery-worker's prefork pool is several OS processes, each holding a genuine partial count, not a duplicate of the same total — this needs summing to be correct, not just to collapse duplicate lines.",
       "targets": [
         {
-          "expr": "rate(slot_claim_contention_total[1m])",
+          "expr": "sum(rate(slot_claim_contention_total[1m]))",
           "legendFormat": "contention/s",
           "datasource": { "type": "prometheus", "uid": "prometheus" }
         }

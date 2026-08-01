@@ -80,6 +80,34 @@ Counters and histograms (`orders_placed_total`, `order_cook_seconds`,
 `promise_error_seconds`, `slot_claim_contention_total`) are recorded at the
 one call site that actually observes the event.
 
+A fourth problem in the same family surfaced afterward, from just looking
+at the dashboard: `kitchen_queue_depth` and `oven_slots_occupied` each drew
+as five-plus near-identical overlapping lines instead of one, because
+`ObservableGauge` registration for both lived in `kitchen/observability.py`
+at unconditional module level — imported, and therefore registered, by
+every one of kitchen's five OS processes (web, celery worker, relay,
+consumer, reaper), each with its own `service.instance.id`. Every process
+queries the same Postgres tables and reports the same number, so this
+wasn't wrong data, just needless duplication — Prometheus storing five
+copies of one fact and Grafana drawing five superimposed lines for it.
+Fixed by moving gauge registration out of `configure()` (called by every
+process) into a new `register_pull_gauges()`, called only from `main.py` —
+the one process a single-instance-per-service laptop demo always keeps
+running. `front_of_house.observability`'s `stream_pending` had the identical
+bug for the identical reason (registered at module level, front-of-house
+runs around ten processes), fixed the same way: moved into `configure_web()`,
+called only by the ASGI app. The Grafana queries for both were also changed
+to aggregate (`max by (...)`) rather than pass the bare metric through —
+defensive, since a *correctly* single-reporter gauge should never need it,
+but cheap insurance against the same class of bug recurring, and it also
+turned out to matter for a different reason: `slot_claim_contention_total`
+is a **counter**, not a gauge, incremented inside kitchen's Celery worker —
+whose prefork pool is itself several OS processes, each holding a genuine
+*partial* count rather than a duplicate of one total. That panel needed
+`sum(rate(...))` regardless of the registration fix, since summing
+per-replica counters is simply the correct way to read one, not a
+workaround for anything.
+
 ### 2. Trace continuity across the event spine needs the envelope, not just auto-instrumentation
 
 Standard OTel instrumentation (Django, FastAPI, httpx) gives automatic W3C
